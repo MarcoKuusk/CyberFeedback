@@ -1,0 +1,10 @@
+openai
+flask
+pandas
+jsonschema
+numpy
+reportlab
+pymupdf
+flask-cors
+flask
+waitress

@@ -1,0 +1,43 @@
+.cyber-border {
+    border: 1px solid #64ffda;
+    box-shadow: 0 0 10px rgba(100, 255, 218, 0.3);
+}
+.cyber-glow:hover {
+    box-shadow: 0 0 15px rgba(100, 255, 218, 0.5);
+}
+.progress-bar {
+    height: 6px;
+    background: linear-gradient(90deg, #64ffda 0%, #0a192f 100%);
+}
+.gauge {
+    width: 100%;
+    height: 20px;
+    background: #172a45;
+    border-radius: 10px;
+    overflow: hidden;
+}
+.gauge-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #64ffda, #1e90ff);
+    transition: width 0.5s ease;
+}
+.card-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+.card-button {
+    margin-top: auto;
+    padding-top: 1.5rem;
+}
+.perspective-item {
+    display: flex;
+    align-items: flex-start;
+    min-height: 60px;
+}
+.error-message {
+    color: #f87171;
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+    display: none;
+}

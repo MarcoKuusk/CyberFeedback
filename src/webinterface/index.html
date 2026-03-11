@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Hygiene Feedback Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0a192f',
+                        secondary: '#172a45',
+                        accent: '#64ffda',
+                        text: '#ccd6f6',
+                        textlight: '#8892b0'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-primary text-text min-h-screen flex flex-col">
+    <!-- Navigation Bar -->
+    <nav class="bg-secondary py-4 px-6 shadow-lg">
+        <div class="container mx-auto flex justify-between items-center">
+            <a href="#" id="homeLink" class="flex items-center space-x-2">
+                <i class="fas fa-shield-alt text-accent text-2xl"></i>
+                <span class="text-xl font-bold">CyberHygiene</span>
+            </a>
+            <div class="hidden md:flex space-x-6">
+                <a href="#" class="nav-link active">Home</a>
+                <a href="#employee" class="nav-link">Employee</a>
+                <a href="#organization" class="nav-link">Organization</a>
+                <a href="#about" class="nav-link">About</a>
+            </div>
+            <button class="md:hidden text-accent">
+                <i class="fas fa-bars text-2xl"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow container mx-auto px-4 py-8">
+        <!-- Homepage -->
+        <section id="home" class="text-center max-w-4xl mx-auto">
+            <h1 class="text-4xl md:text-5xl font-bold mb-6 text-accent">Cyber Hygiene Feedback Tool</h1>
+            <p class="text-xl mb-10 text-textlight">
+                Assess and improve cybersecurity practices for employees and organizations. 
+                Identify strengths, weaknesses, and actionable insights to enhance your digital defenses.
+            </p>
+            
+            <div class="grid md:grid-cols-2 gap-6 mb-16">
+                <div class="bg-secondary p-6 rounded-lg cyber-border hover:cyber-glow transition-all duration-300 flex flex-col">
+                    <div class="card-content">
+                        <i class="fas fa-user-shield text-4xl mb-4 text-accent"></i>
+                        <h3 class="text-xl font-semibold mb-3">Employee Assessment</h3>
+                        <p class="mb-4 text-textlight">Evaluate individual cybersecurity awareness and practices.</p>
+                    </div>
+                    <div class="card-button">
+                        <button id="startEmployee" class="w-full bg-accent text-primary px-6 py-2 rounded-md font-medium hover:bg-opacity-90 transition">Start Assessment</button>
+                    </div>
+                </div>
+                <div class="bg-secondary p-6 rounded-lg cyber-border hover:cyber-glow transition-all duration-300 flex flex-col">
+                    <div class="card-content">
+                        <i class="fas fa-building text-4xl mb-4 text-accent"></i>
+                        <h3 class="text-xl font-semibold mb-3">Organization Assessment</h3>
+                        <p class="mb-4 text-textlight">Assess your organization's cybersecurity policies and infrastructure.</p>
+                    </div>
+                    <div class="card-button">
+                        <button id="startOrganization" class="w-full bg-accent text-primary px-6 py-2 rounded-md font-medium hover:bg-opacity-90 transition">Start Assessment</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-secondary p-8 rounded-lg cyber-border text-left">
+                <h2 class="text-2xl font-bold mb-6 text-accent text-center">Why Cyber Hygiene Matters</h2>
+                
+                <div class="grid md:grid-cols-2 gap-8">
+                    <!-- Employee Perspective -->
+                    <div>
+                        <h3 class="text-xl font-semibold mb-4 text-accent border-b border-accent pb-2 flex items-center">
+                            <i class="fas fa-user-shield mr-3"></i> Employee Perspective
+                        </h3>
+                        <ul class="space-y-3 text-textlight">
+                            <li class="perspective-item">
+                                <i class="fas fa-check-circle text-accent mr-3 mt-1"></i>
+                                <span>Protects your personal and professional data from unauthorized access</span>
+                            </li>
+                            <li class="perspective-item">
+                                <i class="fas fa-check-circle text-accent mr-3 mt-1"></i>
+                                <span>Reduces risk of identity theft and financial fraud</span>
+                            </li>
+                            <li class="perspective-item">
+                                <i class="fas fa-check-circle text-accent mr-3 mt-1"></i>
+                                <span>Ensures compliance with company policies and industry regulations</span>
+                            </li>
+                            <li class="perspective-item">
+                                <i class="fas fa-check-circle text-accent mr-3 mt-1"></i>
+                                <span>Maintains productivity by preventing security incidents</span>
+                            </li>
+                            <li class="perspective-item">
+                                <i class="fas fa-check-circle text-accent mr-3 mt-1"></i>
+                                <span>Builds trust with customers and colleagues</span>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Organizational Perspective -->
+                    <div>
+                        <h3 class="text-xl font-semibold mb-4 text-accent border-b border-accent pb-2 flex items-center">
+                            <i class="fas fa-building mr-3"></i> Organizational Perspective
+                        </h3>
+                        <ul class="space-y-3 text-textlight">
+                            <li class="perspective-item">
+                                <i class="fas fa-check-circle text-accent mr-3 mt-1"></i>
+                                <span>Prevents data breaches that can cost millions in damages and reputation loss</span>
+                            </li>
+                            <li class="perspective-item">
+                                <i class="fas fa-check-circle text-accent mr-3 mt-1"></i>
+                                <span>Protects sensitive customer and employee information from theft</span>
+                            </li>
+                            <li class="perspective-item">
+                                <i class="fas fa-check-circle text-accent mr-3 mt-1"></i>
+                                <span>Reduces vulnerability to ransomware and other cyber attacks</span>
+                            </li>
+                            <li class="perspective-item">
+                                <i class="fas fa-check-circle text-accent mr-3 mt-1"></i>
+                                <span>Ensures compliance with industry regulations and standards</span>
+                            </li>
+                            <li class="perspective-item">
+                                <i class="fas fa-check-circle text-accent mr-3 mt-1"></i>
+                                <span>Creates a security-aware culture that benefits the entire organization</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Employee Assessment -->
+        <section id="employeeAssessment" class="hidden max-w-3xl mx-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-accent">Employee Cyber Hygiene Assessment</h2>
+                <span id="employeeProgressText" class="text-textlight">Question 1 of 15</span>
+            </div>
+            
+            <div class="mb-4 bg-secondary rounded-full h-2">
+                <div id="employeeProgressBar" class="progress-bar rounded-full" style="width: 6.66%"></div>
+            </div>
+            
+            <div id="employeeQuestionContainer" class="bg-secondary p-8 rounded-lg cyber-border mb-6">
+                <!-- Questions will be inserted here dynamically -->
+            </div>
+            
+            <div class="flex justify-between">
+                <button id="employeeBack" class="bg-secondary text-accent px-6 py-2 rounded-md border border-accent hover:bg-accent hover:text-primary transition disabled:opacity-50" disabled>
+                    <i class="fas fa-arrow-left mr-2"></i> Back
+                </button>
+                <button id="employeeNext" class="bg-accent text-primary px-6 py-2 rounded-md hover:bg-opacity-90 transition">
+                    Next <i class="fas fa-arrow-right ml-2"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- Organization Assessment -->
+        <section id="organizationAssessment" class="hidden max-w-3xl mx-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-accent">Organization Cyber Hygiene Assessment</h2>
+                <span id="orgProgressText" class="text-textlight">Question 1 of 20</span>
+            </div>
+            
+            <div class="mb-4 bg-secondary rounded-full h-2">
+                <div id="orgProgressBar" class="progress-bar rounded-full" style="width: 5%"></div>
+            </div>
+            
+            <div id="orgQuestionContainer" class="bg-secondary p-8 rounded-lg cyber-border mb-6">
+                <!-- Questions will be inserted here dynamically -->
+            </div>
+            
+            <div class="flex justify-between">
+                <button id="orgBack" class="bg-secondary text-accent px-6 py-2 rounded-md border border-accent hover:bg-accent hover:text-primary transition disabled:opacity-50" disabled>
+                    <i class="fas fa-arrow-left mr-2"></i> Back
+                </button>
+                <button id="orgNext" class="bg-accent text-primary px-6 py-2 rounded-md hover:bg-opacity-90 transition">
+                    Next <i class="fas fa-arrow-right ml-2"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- Employee Feedback -->
+        <section id="employeeFeedback" class="hidden max-w-4xl mx-auto">
+            <div class="text-center mb-10">
+                <h2 class="text-3xl font-bold text-accent mb-2">Employee Cyber Hygiene Feedback</h2>
+                <p class="text-xl text-textlight">Based on your assessment responses</p>
+            </div>
+            
+            <div class="grid md:grid-cols-2 gap-8 mb-10">
+                <div class="bg-secondary p-6 rounded-lg cyber-border">
+                    <h3 class="text-xl font-semibold mb-4 text-accent flex items-center">
+                        <i class="fas fa-check-circle mr-3"></i> Strengths
+                    </h3>
+                    <ul id="employeeStrengths" class="space-y-3 text-textlight">
+                        <!-- Dynamic content will be inserted here -->
+                    </ul>
+                </div>
+                
+                <div class="bg-secondary p-6 rounded-lg cyber-border">
+                    <h3 class="text-xl font-semibold mb-4 text-accent flex items-center">
+                        <i class="fas fa-exclamation-triangle mr-3"></i> Areas to Improve
+                    </h3>
+                    <ul id="employeeWeaknesses" class="space-y-3 text-textlight">
+                        <!-- Dynamic content will be inserted here -->
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="bg-secondary p-6 rounded-lg cyber-border mb-10">
+                <h3 class="text-xl font-semibold mb-4 text-accent flex items-center">
+                    <i class="fas fa-clipboard-list mr-3"></i> Action Plan
+                </h3>
+                <div id="employeeActionPlan" class="grid md:grid-cols-3 gap-4">
+                    <!-- Dynamic content will be inserted here -->
+                </div>
+            </div>
+            
+            <div class="bg-secondary p-6 rounded-lg cyber-border mb-8">
+                <h3 class="text-xl font-semibold mb-4 text-accent">Score Breakdown</h3>
+                <div id="employeeScoreBreakdown" class="space-y-4">
+                    <!-- Dynamic content will be inserted here -->
+                </div>
+                <div class="mt-6 pt-4 border-t border-gray-700">
+                    <div class="flex justify-between items-center">
+                        <span class="text-lg font-medium">Overall Score</span>
+                        <span id="employeeOverallScore" class="text-2xl font-bold text-accent">0%</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center">
+                <button class="employee-download-btn bg-accent text-primary px-8 py-3 rounded-md font-medium hover:bg-opacity-90 transition flex items-center mx-auto">
+                    <i class="fas fa-file-pdf mr-2"></i> Download Employee PDF Report
+                </button>
+            </div>
+        </section>
+
+        <!-- Organization Feedback -->
+        <section id="organizationFeedback" class="hidden max-w-4xl mx-auto">
+            <div class="text-center mb-10">
+                <h2 class="text-3xl font-bold text-accent mb-2">Organizational Cyber Hygiene Feedback</h2>
+                <p class="text-xl text-textlight">Based on your assessment responses</p>
+            </div>
+            
+            <div class="grid md:grid-cols-2 gap-8 mb-10">
+                <div class="bg-secondary p-6 rounded-lg cyber-border">
+                    <h3 class="text-xl font-semibold mb-4 text-accent flex items-center">
+                        <i class="fas fa-check-circle mr-3"></i> Strengths
+                    </h3>
+                    <ul id="orgStrengths" class="space-y-3 text-textlight">
+                        <!-- Dynamic content will be inserted here -->
+                    </ul>
+                </div>
+                
+                <div class="bg-secondary p-6 rounded-lg cyber-border">
+                    <h3 class="text-xl font-semibold mb-4 text-accent flex items-center">
+                        <i class="fas fa-exclamation-triangle mr-3"></i> Areas to Improve
+                    </h3>
+                    <ul id="orgWeaknesses" class="space-y-3 text-textlight">
+                        <!-- Dynamic content will be inserted here -->
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="bg-secondary p-6 rounded-lg cyber-border mb-10">
+                <h3 class="text-xl font-semibold mb-4 text-accent flex items-center">
+                    <i class="fas fa-clipboard-list mr-3"></i> Action Plan
+                </h3>
+                <div id="orgActionPlan" class="grid md:grid-cols-3 gap-4">
+                    <!-- Dynamic content will be inserted here -->
+                </div>
+            </div>
+            
+            <div class="bg-secondary p-6 rounded-lg cyber-border mb-8">
+                <h3 class="text-xl font-semibold mb-4 text-accent">Score Breakdown</h3>
+                <div id="orgScoreBreakdown" class="space-y-4">
+                    <!-- Dynamic content will be inserted here -->
+                </div>
+                <div class="mt-6 pt-4 border-t border-gray-700">
+                    <div class="flex justify-between items-center">
+                        <span class="text-lg font-medium">Overall Score</span>
+                        <span id="orgOverallScore" class="text-2xl font-bold text-accent">0%</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center">
+                <button class="organization-download-btn bg-accent text-primary px-8 py-3 rounded-md font-medium hover:bg-opacity-90 transition flex items-center mx-auto">
+                    <i class="fas fa-file-pdf mr-2"></i> Download Organization PDF Report
+                </button>
+            </div>
+        </section>
+
+        <!-- About Section -->
+        <section id="about" class="hidden max-w-4xl mx-auto">
+            <div class="text-center mb-10">
+                <h2 class="text-3xl font-bold text-accent mb-2">About Cyber Hygiene Feedback Tool</h2>
+                <p class="text-xl text-textlight">Enhancing organizational cybersecurity through assessment and feedback</p>
+            </div>
+            
+            <div class="bg-secondary p-8 rounded-lg cyber-border mb-8">
+                <h3 class="text-xl font-semibold mb-4 text-accent">Our Mission</h3>
+                <p class="mb-4 text-textlight">
+                    The Cyber Hygiene Feedback Tool was developed to help organizations get an overview of their current cyber hygiene posture with limited technical help. We also want provide actionable insights to strengthen help strenghten the overall security posture of the organization.
+                </p>
+                <p class="text-textlight">
+                    By combining employee behavior assessment with organizational policy evaluation, we provide a comprehensive 
+                    view of your cyber hygiene with out any extensive securiy audits.
+                </p>
+            </div>
+            
+            <div class="bg-secondary p-8 rounded-lg cyber-border mb-8">
+                <h3 class="text-xl font-semibold mb-4 text-accent">How It Works</h3>
+                <div class="grid md:grid-cols-3 gap-6">
+                    <div class="bg-primary bg-opacity-50 p-4 rounded">
+                        <div class="text-accent text-2xl mb-3">
+                            <i class="fas fa-clipboard-check"></i>
+                        </div>
+                        <h4 class="font-medium mb-2">Assessment</h4>
+                        <p class="text-sm text-textlight">
+                            Employees and administrators complete tailored questionnaires about security practices and policies.
+                        </p>
+                    </div>
+                    <div class="bg-primary bg-opacity-50 p-4 rounded">
+                        <div class="text-accent text-2xl mb-3">
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                        <h4 class="font-medium mb-2">Analysis</h4>
+                        <p class="text-sm text-textlight">
+                            Our system evaluates responses against security benchmarks and identifies strengths and weaknesses.
+                        </p>
+                    </div>
+                    <div class="bg-primary bg-opacity-50 p-4 rounded">
+                        <div class="text-accent text-2xl mb-3">
+                            <i class="fas fa-lightbulb"></i>
+                        </div>
+                        <h4 class="font-medium mb-2">Feedback</h4>
+                        <p class="text-sm text-textlight">
+                            Detailed reports provide actionable recommendations for both individuals and the organization.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-secondary p-8 rounded-lg cyber-border">
+                <h3 class="text-xl font-semibold mb-4 text-accent">Key Benefits</h3>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="flex items-start">
+                        <div class="text-accent mr-4 mt-1">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-medium mb-1">Risk Reduction</h4>
+                            <p class="text-sm text-textlight">
+                                Identify and address vulnerabilities before they're exploited by attackers.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <div class="text-accent mr-4 mt-1">
+                            <i class="fas fa-user-shield"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-medium mb-1">Employee Awareness</h4>
+                            <p class="text-sm text-textlight">
+                                Personalized feedback helps employees understand their security role.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <div class="text-accent mr-4 mt-1">
+                            <i class="fas fa-balance-scale"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-medium mb-1">Policy Alignment</h4>
+                            <p class="text-sm text-textlight">
+                                Reveal gaps between security policies and actual employee practices.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <div class="text-accent mr-4 mt-1">
+                            <i class="fas fa-tachometer-alt"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-medium mb-1">Progress Tracking</h4>
+                            <p class="text-sm text-textlight">
+                                Measure improvements over time with periodic assessments.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-secondary py-8 px-6">
+        <div class="container mx-auto">
+            <div class="text-center">
+                <div class="flex items-center space-x-2 mb-4 justify-center">
+                    <i class="fas fa-shield-alt text-accent text-2xl"></i>
+                    <span class="text-xl font-bold">CyberHygiene</span>
+                </div>
+                <p class="text-textlight text-sm max-w-2xl mx-auto">
+                    Empowering organizations to strengthen their cybersecurity through comprehensive assessment and actionable feedback.
+                </p>
+            </div>
+        </div>
+    </footer>
+    <script src="scripts.js"></script>
+</body>
+</html>
