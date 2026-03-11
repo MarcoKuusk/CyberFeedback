@@ -1,123 +1,105 @@
-import openai
-from collections import defaultdict
 import json
+import os
+from typing import Any, Dict
+
+import openai
+
+from utils.report_analysis import analyze_assessment
+
 
 class EmployeeFeedbackGenerator:
-    def __init__(self, assessment_data, config_path="src\config.json"):
+    def __init__(self, assessment_data, metadata: Dict[str, Any] | None = None):
         self.assessment_data = assessment_data
-        self.api_key = self._load_api_key(config_path)
+        self.metadata = metadata or {}
+        self.api_key = self._load_api_key()
 
-    def _load_api_key(self, config_path):
-        with open(config_path, "r") as config_file:
-            config = json.load(config_file)
-        return config.get("openai_api_key")
+    def _load_api_key(self):
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise RuntimeError("Missing OPENAI_API_KEY environment variable. Set it before generating reports.")
+        return api_key
 
     def generate_feedback(self):
-        findings, strengths = self._summarize_findings()
-        total_score = self._calculate_total_score()
-        prompt = self._build_feedback_prompt(findings, strengths, total_score)
+        summary = analyze_assessment(self.assessment_data, report_type="employee")
+        prompt = self._build_feedback_prompt(summary)
         return self._generate_ai_feedback(prompt)
 
-    def _summarize_findings(self):
-        findings = defaultdict(list)
-        strengths = []
-
-        for question_data in self.assessment_data:
-            category = question_data.get("category", "General")
-            question = question_data["question"]
-            selected_answer = question_data.get("selectedAnswer")
-
-            if selected_answer:
-                score = selected_answer["score"]
-                if score >= 3:
-                    strengths.append(f"{question}")
-                else:
-                    findings[category].append(f"{question}")
-
-        return findings, strengths
-
-    def _calculate_total_score(self):
-        total_score = 0
-        max_score = 0
-
-        for question_data in self.assessment_data:
-            selected_answer = question_data.get("selectedAnswer")
-            if selected_answer:
-                total_score += selected_answer["score"]
-            max_score += len(question_data["answers"]) - 1
-
-        return (total_score / max_score) * 100 if max_score > 0 else 0
-
-    def _determine_urgency_tone(self, score):
-        if score < 30:
-            return "**Critical:** Your cyber hygiene practices need urgent improvement."
-        elif score < 60:
-            return "**Needs Improvement:** You're making progress, but there are significant gaps."
-        else:
-            return "**Good Start:** You're doing well, but there's room for improvement."
-
-    def _build_feedback_prompt(self, findings, strengths, total_score):
-        findings_text = "\n\n".join(
-            f"**{category}**\n" + "\n".join(f"- {item}" for item in items)
-            for category, items in findings.items()
+    def _build_feedback_prompt(self, summary: Dict[str, Any]) -> str:
+        question_context = "\n".join(
+            [
+                (
+                    f"- Category: {item['category']} | Score: {item['score']}/{item['max_score']} | "
+                    f"Interpretation: {item['interpretation']} | Question: {item['question']} | "
+                    f"Selected answer: {item['selected_answer']}"
+                )
+                for item in summary["question_summaries"]
+            ]
         )
+        category_context = "\n".join(
+            f"- {category}: {score:.1f}%" for category, score in summary["category_scores"].items()
+        )
+        top_actions = "\n".join(f"- {action}" for action in summary["priority_actions"]) or "- No urgent actions identified."
+        context_signals = "\n".join(f"- {signal}" for signal in summary["context_signals"]) or "- No special context signals inferred."
+        repeated_patterns = "\n".join(
+            f"- {pattern['theme']} (appears {pattern['count']} times)" for pattern in summary["repeated_patterns"]
+        ) or "- No repeated patterns identified."
 
-        strengths_text = "\n".join(f"- {s}" for s in strengths) if strengths else "- No specific strengths identified yet."
+        return f"""
+You are a cybersecurity coach writing a polished report for an employee with basic digital skills.
 
-        tone = self._determine_urgency_tone(total_score)
+Write in plain English, with a warm and professional tone. Tailor all recommendations to the actual selected answers below. Do not make up policies, incidents, technology, or job responsibilities that were not provided. If evidence is limited, say so briefly and stay grounded in the assessment results.
 
-        prompt = f"""
-        You are a cybersecurity coach helping employees at small and medium-sized businesses improve their personal cyber hygiene and security habits.
+Use exactly these sections and headings:
+# Employee Cyber Hygiene Report
+## Executive Summary
+## Overall Score Snapshot
+## What You Are Doing Well
+## Priority Risks
+## 30-60-90 Day Action Roadmap
+## Category Breakdown
+## Appendix: Response Highlights
 
-        Generate a clear, structured, and friendly feedback report based on the following self-assessment results. Your audience is an individual employee with basic digital skills but no technical background. Use plain, accessible language and make your advice easy to understand and act on.
+Formatting requirements:
+- Keep the executive summary to one short paragraph.
+- In Overall Score Snapshot, include the score, maturity label, and 3 short bullets for the most important takeaways.
+- In What You Are Doing Well, highlight 3-5 strengths tied to the user's selected answers.
+- In Priority Risks, explain the main risks in concrete everyday terms.
+- In 30-60-90 Day Action Roadmap, create three subsections titled ### Next 30 Days, ### Next 60 Days, ### Next 90 Days with 3-5 actions each.
+- In Category Breakdown, discuss the strongest and weakest categories with short paragraphs or bullets.
+- In Appendix: Response Highlights, include 6-8 concise bullets that quote or paraphrase the user's selected answers.
+- Avoid generic filler and avoid repeating the same recommendation more than once.
 
-        Use the following structure:
+Assessment summary:
+- Overall score: {summary['overall_score']:.1f}%
+- Maturity label: {summary['maturity_label']}
+- Report type: employee
 
-        ## Cyber Hygiene Score
-        {total_score:.2f}%  
-        {tone}
+Category scores:
+{category_context}
 
-        ## Introduction
-        Write a short paragraph summarizing the employee’s current cybersecurity hygiene based on the score. Mention whether it’s strong, moderate, or weak, and highlight the importance of good habits in protecting both the individual and the organization.
+Context signals:
+{context_signals}
 
-        ## What You're Doing Well
-        Highlight areas where the employee is following good cybersecurity practices. Use bullet points and explain briefly why each one is important.
+Repeated patterns:
+{repeated_patterns}
 
-        {strengths_text}
+Priority actions:
+{top_actions}
 
-        ## Areas to Improve
-        Break down the weak areas by topic. For each, explain what needs improvement and why it matters. Use clear, simple language.
-
-        {findings_text}
-
-        ## Potential Risks and Risk Scenarios
-        Based on the weak areas, describe the main risks. Use short, concrete examples (e.g., “If you reuse the same password everywhere, a data breach on one site could expose all your accounts.”)
-
-        ## Personal Cyber Hygiene Action Plan
-
-        Provide a step-by-step action plan the employee can follow to improve their habits. Break it down by timeframe, and ensure each section includes 4–6 clear, actionable items. Where helpful, add a brief tip on how to begin or what to look for (e.g., tools to use, settings to check, or support to ask for).
-
-        ### Immediate (0–30 Days)
-        Quick wins and critical fixes:
-
-        ### Short-Term (60–90 Days)
-        Mid-term improvements that may need a bit more time or learning:
-
-        ### Medium-Term (3–6 Months)
-        Longer-term changes to build sustainable habits:
-
-        ## Conclusion
-        Encourage the employee to keep improving their cybersecurity practices. Remind them that small actions — like updating passwords or learning to spot phishing — can have a big impact. Suggest reviewing their cyber hygiene again in 6–12 months.
-
-        Write the feedback as if you’re coaching and supporting a real person in your team.
-        """
-
-        return prompt.strip()
+Question and answer evidence:
+{question_context}
+""".strip()
 
     def _generate_ai_feedback(self, prompt):
         client = openai.OpenAI(api_key=self.api_key)
         response = client.chat.completions.create(
             model="gpt-4o",
-            messages=[{"role": "user", "content": prompt}]
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You create concise, executive-ready cybersecurity reports grounded only in the supplied assessment data.",
+                },
+                {"role": "user", "content": prompt},
+            ],
         )
         return response.choices[0].message.content
