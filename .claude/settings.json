@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python src/server.py)",
+      "Bash(python src/main.py)",
+      "Bash(pip install -r requirements.txt)",
+      "Bash(pip list)",
+      "Bash(pip show *)",
+      "Bash(python -m pytest*)",
+      "Bash(python -c *)",
+      "Bash(git status)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git add src/*)",
+      "Bash(git add CLAUDE.md)",
+      "Read(src/**)",
+      "Read(requirements.txt)",
+      "Read(CLAUDE.md)",
+      "Read(.gitignore)"
+    ],
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git reset --hard*)",
+      "Bash(rm -rf*)",
+      "Bash(curl * | bash)",
+      "Bash(wget * | bash)"
+    ]
+  }
+}

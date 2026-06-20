@@ -33,11 +33,20 @@ src/
    ```powershell
    $env:OPENAI_API_KEY="your_api_key_here"
    ```
-3. Start the Flask server:
+   Or save it to your Windows user environment without committing it:
+   ```powershell
+   .\scripts\set-openai-key.ps1
+   ```
+3. Optional: choose the OpenAI model and reasoning effort. The default model is `gpt-5.5`.
+   ```powershell
+   $env:OPENAI_MODEL="gpt-5.5"
+   $env:OPENAI_REASONING_EFFORT="medium"
+   ```
+4. Start the Flask server:
    ```bash
    python src/server.py
    ```
-4. Open the app at [http://127.0.0.1:5000](http://127.0.0.1:5000).
+5. Open the app at [http://127.0.0.1:5000](http://127.0.0.1:5000).
 
 ## Usage
 - Choose either the employee or organization assessment.
@@ -47,4 +56,5 @@ src/
 
 ## Notes
 - If `OPENAI_API_KEY` is missing, PDF generation will fail with a clear error message.
+- `OPENAI_MODEL` and `OPENAI_REASONING_EFFORT` can be overridden locally for development.
 - Saved assessments and generated reports may contain sensitive operational information and should be handled as local-only data unless you intentionally move them elsewhere.

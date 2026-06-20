@@ -1,8 +1,6 @@
-import os
 from typing import Any, Dict
 
-import openai
-
+from Feedback_Generators.openai_response_client import generate_report_text, load_api_key
 from utils.report_analysis import analyze_assessment
 
 
@@ -13,10 +11,7 @@ class OrganizationFeedbackGenerator:
         self.api_key = self._load_api_key()
 
     def _load_api_key(self):
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise RuntimeError("Missing OPENAI_API_KEY environment variable. Set it before generating reports.")
-        return api_key
+        return load_api_key()
 
     def generate_feedback(self):
         summary = analyze_assessment(self.assessment_data, report_type="organization")
@@ -90,15 +85,4 @@ Question and answer evidence:
 """.strip()
 
     def _generate_ai_feedback(self, prompt):
-        client = openai.OpenAI(api_key=self.api_key)
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You create concise, executive-ready cybersecurity reports grounded only in the supplied assessment data.",
-                },
-                {"role": "user", "content": prompt},
-            ],
-        )
-        return response.choices[0].message.content
+        return generate_report_text(self.api_key, prompt)
