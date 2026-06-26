@@ -1,10 +1,5 @@
 openai
 flask
-pandas
-jsonschema
-numpy
-reportlab
+reportlab==4.4.10  # pinned for reproducible PDF rendering (see main.py _build_styles)
 pymupdf
-flask-cors
-flask
-waitress
+waitress  # production WSGI server (Phase 4)

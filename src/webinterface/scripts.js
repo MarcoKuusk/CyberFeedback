@@ -1,11 +1,15 @@
 const state = {
     currentPage: 'home',
     reportType: null,
+    campaignId: null,
+    respondentId: null,
     questions: [],
     currentQuestionIndex: 0,
     answers: [],
     summary: null,
 };
+
+const ID_PATTERN = /^[0-9a-f]{32}$/;
 
 const reportLabels = {
     employee: 'Employee',
@@ -17,8 +21,39 @@ const elements = {};
 document.addEventListener('DOMContentLoaded', () => {
     cacheElements();
     bindEvents();
+    readCampaignFromUrl();
     showPage('home');
 });
+
+// Phase 1: campaign context arrives as a ?campaign=<id> query param. Phase 3
+// replaces this with tokenized links; until then, an absent/invalid param falls
+// back to a seeded local campaign created on first submit (see ensureCampaign).
+function readCampaignFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const campaign = params.get('campaign');
+    if (campaign && ID_PATTERN.test(campaign)) {
+        state.campaignId = campaign;
+    }
+}
+
+async function ensureCampaign() {
+    if (state.campaignId) {
+        return state.campaignId;
+    }
+    // Dev fallback only (Phase 1): create a local campaign enabling both tracks
+    // so the flow works without a link. Server binds 127.0.0.1; auth lands Phase 3.
+    const response = await fetch('/api/campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ org_name: 'Local dev', tracks: ['employee', 'organization'] }),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+        throw new Error(result.message || 'Failed to prepare a campaign.');
+    }
+    state.campaignId = result.campaign.campaign_id;
+    return state.campaignId;
+}
 
 function cacheElements() {
     elements.pages = document.querySelectorAll('.page');
@@ -107,6 +142,7 @@ async function startAssessment(reportType) {
         state.answers = new Array(state.questions.length).fill(null);
         state.currentQuestionIndex = 0;
         state.summary = null;
+        state.respondentId = null;
 
         elements.workspaceEyebrow.textContent = `${reportLabels[reportType]} assessment`;
         elements.workspaceTitle.textContent = `${reportLabels[reportType]} cyber hygiene assessment`;
@@ -267,7 +303,8 @@ async function submitAssessment() {
     setStatus('Saving your assessment...', '');
 
     try {
-        const response = await fetch(`/saveAssessmentData/${state.reportType}`, {
+        const campaignId = await ensureCampaign();
+        const response = await fetch(`/saveAssessmentData/${campaignId}/${state.reportType}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
@@ -276,6 +313,7 @@ async function submitAssessment() {
         if (!response.ok) {
             throw new Error(result.message || 'Failed to save assessment.');
         }
+        state.respondentId = result.respondent_id;
 
         state.summary = summarizeAssessment(payload.responses);
         renderFeedback();
@@ -321,9 +359,9 @@ function summarizeAssessment(responses) {
         maxScore += possible;
 
         if (scoreRatio >= 0.75) {
-            strengths.push(`${item.question} — ${selected.option}`);
+            strengths.push(`${item.question} â€“ ${selected.option}`);
         } else {
-            watchItems.push(`${item.question} — ${selected.option}`);
+            watchItems.push(`${item.question} â€“ ${selected.option}`);
             actions.push(makeActionSuggestion(item));
         }
     });
@@ -411,23 +449,24 @@ function renderDetailList(element, items, emptyMessage) {
 }
 
 async function generateAndDownloadReport() {
-    if (!state.reportType) {
-        setStatus('Start an assessment before generating a report.', 'error');
+    if (!state.reportType || !state.campaignId || !state.respondentId) {
+        setStatus('Submit your assessment before generating a report.', 'error');
         return;
     }
 
     elements.downloadButton.disabled = true;
     setStatus('Generating your PDF report. This can take a moment.', '');
 
+    const reportPath = `/${state.campaignId}/${state.reportType}/${state.respondentId}`;
     try {
-        const response = await fetch(`/generateFeedback/${state.reportType}`, { method: 'POST' });
+        const response = await fetch(`/generateFeedback${reportPath}`, { method: 'POST' });
         const payload = await response.json();
         if (!response.ok) {
             throw new Error(payload.message || 'Failed to generate the report.');
         }
 
         const link = document.createElement('a');
-        link.href = `/downloadReport/${state.reportType}`;
+        link.href = `/downloadReport${reportPath}`;
         link.download = `${state.reportType}_feedback_report.pdf`;
         document.body.appendChild(link);
         link.click();

@@ -139,7 +139,9 @@ def _build_styles():
     )
     styles.add(
         ParagraphStyle(
-            name="Bullet",
+            # "Bullet" is already defined in ReportLab's default sample stylesheet,
+            # so a custom name avoids a KeyError on add().
+            name="ReportBullet",
             fontName="Helvetica",
             fontSize=10.2,
             leading=14,
@@ -270,7 +272,7 @@ def save_feedback_to_pdf(feedback_text: str, summary: Dict[str, Any], title: str
     elements.append(HRFlowable(width="100%", thickness=0.6, color=REPORT_COLORS["line"]))
     elements.append(Spacer(1, 6))
     for action in summary["priority_actions"][:5] or ["No urgent actions identified."]:
-        elements.append(Paragraph(f"- {_clean_inline_markup(action)}", styles["Bullet"]))
+        elements.append(Paragraph(f"- {_clean_inline_markup(action)}", styles["ReportBullet"]))
     elements.append(Spacer(1, 10))
 
     if summary["top_gap_categories"]:
@@ -278,7 +280,7 @@ def save_feedback_to_pdf(feedback_text: str, summary: Dict[str, Any], title: str
         elements.append(HRFlowable(width="100%", thickness=0.6, color=REPORT_COLORS["line"]))
         elements.append(Spacer(1, 6))
         for item in summary["top_gap_categories"]:
-            elements.append(Paragraph(f"- <b>{_clean_inline_markup(item['category'])}</b>: {item['score']:.1f}%", styles["Bullet"]))
+            elements.append(Paragraph(f"- <b>{_clean_inline_markup(item['category'])}</b>: {item['score']:.1f}%", styles["ReportBullet"]))
         elements.append(Spacer(1, 10))
 
     for section_name, lines in sections.items():
@@ -299,7 +301,7 @@ def save_feedback_to_pdf(feedback_text: str, summary: Dict[str, Any], title: str
             if line.startswith("### "):
                 elements.append(Paragraph(_clean_inline_markup(line[4:].strip()), styles["SubHeading"]))
             elif line.startswith("- "):
-                elements.append(Paragraph(_clean_inline_markup(line), styles["Bullet"]))
+                elements.append(Paragraph(_clean_inline_markup(line), styles["ReportBullet"]))
             else:
                 elements.append(Paragraph(_clean_inline_markup(line), styles["Body"]))
         elements.append(Spacer(1, 8))
@@ -311,7 +313,14 @@ def save_feedback_to_pdf(feedback_text: str, summary: Dict[str, Any], title: str
     )
 
 
-def generate_report(report_type: str, assessment_data: List[Dict[str, Any]], metadata: Dict[str, Any], output_dir: str):
+def generate_report(report_type: str, assessment_data: List[Dict[str, Any]], metadata: Dict[str, Any], output_path: str):
+    """Render the per-respondent PDF to an explicit, pre-validated output path.
+
+    `output_path` is the full destination file path (supplied by
+    campaign_store.report_path in the server flow). The parent directory is
+    created if needed so callers don't have to pre-make the nested
+    org/campaign/track folders.
+    """
     if not assessment_data:
         raise ValueError(f"No {report_type} assessment data available.")
 
@@ -320,9 +329,9 @@ def generate_report(report_type: str, assessment_data: List[Dict[str, Any]], met
     feedback = generator.generate_feedback()
     summary = analyze_assessment(assessment_data, report_type=report_type)
 
-    filename = os.path.join(output_dir, f"{report_type}_feedback_report.pdf")
-    save_feedback_to_pdf(feedback, summary, REPORT_TITLES[report_type], filename)
-    return filename, summary
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    save_feedback_to_pdf(feedback, summary, REPORT_TITLES[report_type], output_path)
+    return output_path, summary
 
 
 def main():
@@ -333,12 +342,12 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
 
     if employee_data:
-        generate_report("employee", employee_data, employee_metadata, output_dir)
+        generate_report("employee", employee_data, employee_metadata, os.path.join(output_dir, "employee_feedback_report.pdf"))
     else:
         print("Warning: No employee assessment data found.")
 
     if organization_data:
-        generate_report("organization", organization_data, organization_metadata, output_dir)
+        generate_report("organization", organization_data, organization_metadata, os.path.join(output_dir, "organization_feedback_report.pdf"))
     else:
         print("Warning: No organization assessment data found.")
 

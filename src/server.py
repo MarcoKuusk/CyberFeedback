@@ -4,21 +4,19 @@ from typing import Any, Dict, Tuple
 
 from flask import Flask, jsonify, request, send_from_directory
 
-from main import generate_report, load_assessment_payload
+import campaign_store
+from main import generate_report
 
 app = Flask(__name__, static_folder="webinterface")
 
-DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "data"))
+DATA_DIR = campaign_store.DATA_DIR
 QUESTIONNAIRE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "Question_And_Data"))
-GENERATED_REPORT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "Generated_PDF_Report"))
-ALLOWED_REPORT_TYPES = {"employee", "organization"}
+GENERATED_REPORT_DIR = campaign_store.GENERATED_REPORT_DIR
+# Single source of truth for tracks lives in campaign_store (Phase 1, step 5).
+ALLOWED_REPORT_TYPES = campaign_store.ALLOWED_TRACKS
 
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(GENERATED_REPORT_DIR, exist_ok=True)
-
-
-def _assessment_file(report_type: str) -> str:
-    return os.path.join(DATA_DIR, f"{report_type}_assessment.json")
 
 
 def _questionnaire_file(report_type: str) -> str:
@@ -60,6 +58,26 @@ def _validate_payload(payload: Any) -> Tuple[bool, str]:
     return True, ""
 
 
+def _validate_campaign(payload: Any) -> Tuple[bool, str]:
+    if not isinstance(payload, dict):
+        return False, "Request body must be an object."
+
+    org_name = payload.get("org_name")
+    tracks = payload.get("tracks")
+
+    if not isinstance(org_name, str) or not org_name.strip():
+        return False, "Organization name is required."
+    if not isinstance(tracks, list) or not tracks:
+        return False, "At least one track is required."
+    if not all(isinstance(track, str) for track in tracks):
+        return False, "Tracks must be strings."
+    unknown = sorted({t for t in tracks if t not in ALLOWED_REPORT_TYPES})
+    if unknown:
+        return False, "Tracks must be a subset of the allowed tracks."
+
+    return True, ""
+
+
 @app.route("/")
 def serve_index():
     return send_from_directory(app.static_folder, "index.html")
@@ -79,40 +97,80 @@ def get_questionnaire(report_type):
     return jsonify({"status": "ok", "questionnaire": questionnaire})
 
 
-@app.route("/saveAssessmentData/<report_type>", methods=["POST"])
-def save_assessment_data(report_type):
-    if report_type not in ALLOWED_REPORT_TYPES:
-        return _json_error("Invalid report type.", 400)
+@app.route("/api/campaigns", methods=["GET"])
+def list_campaigns_endpoint():
+    return jsonify({"status": "ok", "campaigns": campaign_store.list_campaigns()})
+
+
+@app.route("/api/campaigns", methods=["POST"])
+def create_campaign_endpoint():
+    # NOTE: This endpoint is intentionally unauthenticated in Phase 1 and is only
+    # acceptable because the app binds 127.0.0.1 for local dev. It MUST be
+    # auth-gated in Phase 3 before any hosting (see docs/PHASE1_PLAN.md §3).
+    payload = request.get_json(silent=True)
+    is_valid, error_message = _validate_campaign(payload)
+    if not is_valid:
+        return _json_error(error_message, 400)
+
+    try:
+        campaign = campaign_store.create_campaign(payload["org_name"], payload["tracks"])
+    except ValueError:
+        return _json_error("Could not create campaign from the supplied details.", 400)
+
+    return jsonify({"status": "ok", "campaign": campaign}), 201
+
+
+@app.route("/saveAssessmentData/<campaign_id>/<track>", methods=["POST"])
+def save_assessment_data(campaign_id, track):
+    if track not in ALLOWED_REPORT_TYPES:
+        return _json_error("Invalid track.", 400)
+    if not campaign_store.is_valid_id(campaign_id):
+        return _json_error("Invalid campaign id.", 400)
 
     payload = request.get_json(silent=True)
     is_valid, error_message = _validate_payload(payload)
     if not is_valid:
         return _json_error(error_message, 400)
 
-    file_path = _assessment_file(report_type)
-    with open(file_path, "w", encoding="utf-8") as file:
-        json.dump(payload, file, indent=2)
+    try:
+        respondent_id = campaign_store.save_submission(campaign_id, track, payload)
+    except ValueError:
+        return _json_error("Invalid track for this campaign.", 400)
+    except LookupError:
+        return _json_error("Campaign not found.", 404)
 
-    return jsonify({"status": "ok", "message": f"{report_type.title()} assessment saved."})
+    return jsonify(
+        {
+            "status": "ok",
+            "message": f"{track.title()} assessment saved.",
+            "respondent_id": respondent_id,
+        }
+    )
 
 
-@app.route("/generateFeedback/<report_type>", methods=["POST"])
-def generate_feedback(report_type):
-    if report_type not in ALLOWED_REPORT_TYPES:
-        return _json_error("Invalid report type.", 400)
+@app.route("/generateFeedback/<campaign_id>/<track>/<respondent_id>", methods=["POST"])
+def generate_feedback(campaign_id, track, respondent_id):
+    if track not in ALLOWED_REPORT_TYPES:
+        return _json_error("Invalid track.", 400)
+    if not campaign_store.is_valid_id(campaign_id) or not campaign_store.is_valid_id(respondent_id):
+        return _json_error("Invalid identifier.", 400)
+
+    # Resolve the submission first. These calls have well-defined failure modes;
+    # keep their narrow handlers separate from report generation so a LookupError
+    # subclass (e.g. KeyError) raised deep inside generation can't be misread as
+    # "campaign not found".
+    try:
+        assessment_data, metadata = campaign_store.load_submission(campaign_id, track, respondent_id)
+        output_path = campaign_store.report_path(campaign_id, track, respondent_id)
+    except LookupError:
+        return _json_error("Campaign not found.", 404)
+    except FileNotFoundError:
+        return _json_error("No saved submission found for this respondent.", 404)
+    except ValueError:
+        return _json_error("Invalid identifier.", 400)
 
     try:
-        assessment_data, metadata = load_assessment_payload(_assessment_file(report_type))
-        report_path, summary = generate_report(report_type, assessment_data, metadata, GENERATED_REPORT_DIR)
-        return jsonify(
-            {
-                "status": "ok",
-                "message": f"{os.path.basename(report_path)} is ready.",
-                "summary": summary,
-            }
-        )
-    except FileNotFoundError:
-        return _json_error("No saved assessment data found for this report type.", 404)
+        report_file, summary = generate_report(track, assessment_data, metadata, output_path)
     except ValueError as exc:
         return _json_error(str(exc), 400)
     except RuntimeError as exc:
@@ -120,18 +178,38 @@ def generate_feedback(report_type):
     except Exception:
         return _json_error("Report generation failed. Check server logs for details.", 500)
 
+    return jsonify(
+        {
+            "status": "ok",
+            "message": f"{os.path.basename(report_file)} is ready.",
+            "summary": summary,
+        }
+    )
 
-@app.route("/downloadReport/<report_type>", methods=["GET"])
-def download_report(report_type):
-    if report_type not in ALLOWED_REPORT_TYPES:
-        return _json_error("Invalid report type.", 400)
 
-    file_name = f"{report_type}_feedback_report.pdf"
-    file_path = os.path.join(GENERATED_REPORT_DIR, file_name)
+@app.route("/downloadReport/<campaign_id>/<track>/<respondent_id>", methods=["GET"])
+def download_report(campaign_id, track, respondent_id):
+    if track not in ALLOWED_REPORT_TYPES:
+        return _json_error("Invalid track.", 400)
+    if not campaign_store.is_valid_id(campaign_id) or not campaign_store.is_valid_id(respondent_id):
+        return _json_error("Invalid identifier.", 400)
+
+    try:
+        file_path = campaign_store.report_path(campaign_id, track, respondent_id)
+    except ValueError:
+        return _json_error("Invalid identifier.", 400)
+    except LookupError:
+        return _json_error("Campaign not found.", 404)
+
     if not os.path.exists(file_path):
         return _json_error("Requested report is not available yet.", 404)
 
-    return send_from_directory(GENERATED_REPORT_DIR, file_name, as_attachment=True)
+    return send_from_directory(
+        os.path.dirname(file_path),
+        os.path.basename(file_path),
+        as_attachment=True,
+        download_name=f"{track}_feedback_report.pdf",
+    )
 
 
 @app.route("/<path:path>")
