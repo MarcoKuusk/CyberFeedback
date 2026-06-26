@@ -210,3 +210,22 @@ def report_path(campaign_id: str, track: str, respondent_id: str) -> str:
     if not is_valid_id(respondent_id):
         raise ValueError("Invalid respondent id.")
     return _safe_join(GENERATED_REPORT_DIR, campaign["org_slug"], campaign_id, track, f"{respondent_id}.pdf")
+
+
+def list_submissions(campaign_id: str, track: str) -> List[str]:
+    """Return the respondent_ids that have a stored submission for this track.
+
+    No submission contents are read — only filenames are listed, and any name
+    that is not a valid respondent_id is ignored. Returns [] when nothing has
+    been submitted yet.
+    """
+    campaign = _resolve(campaign_id, track)
+    track_dir = _safe_join(DATA_DIR, campaign["org_slug"], campaign_id, track)
+    if not os.path.isdir(track_dir):
+        return []
+    ids = [
+        name[:-5]
+        for name in os.listdir(track_dir)
+        if name.endswith(".json") and is_valid_id(name[:-5])
+    ]
+    return sorted(ids)

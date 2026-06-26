@@ -237,3 +237,41 @@ def test_report_path_rejects_adversarial_respondent_id(store):
     campaign = store.create_campaign("Acme", ["employee"])
     with pytest.raises(ValueError):
         store.report_path(campaign["campaign_id"], "employee", "../../evil")
+
+
+# --------------------------------------------------------------------------- #
+# list_submissions
+# --------------------------------------------------------------------------- #
+def test_list_submissions_empty(store):
+    campaign = store.create_campaign("Acme", ["employee"])
+    assert store.list_submissions(campaign["campaign_id"], "employee") == []
+
+
+def test_list_submissions_returns_saved_ids(store):
+    campaign = store.create_campaign("Acme", ["employee"])
+    cid = campaign["campaign_id"]
+    a = store.save_submission(cid, "employee", SAMPLE_PAYLOAD)
+    b = store.save_submission(cid, "employee", SAMPLE_PAYLOAD)
+    assert store.list_submissions(cid, "employee") == sorted([a, b])
+
+
+def test_list_submissions_ignores_non_id_files(store):
+    campaign = store.create_campaign("Acme", ["employee"])
+    cid = campaign["campaign_id"]
+    rid = store.save_submission(cid, "employee", SAMPLE_PAYLOAD)
+    # Drop a stray non-id file alongside the real submission; it must be ignored.
+    track_dir = os.path.join(store.DATA_DIR, campaign["org_slug"], cid, "employee")
+    with open(os.path.join(track_dir, "notes.json"), "w", encoding="utf-8") as fh:
+        fh.write("{}")
+    assert store.list_submissions(cid, "employee") == [rid]
+
+
+def test_list_submissions_unknown_campaign(store):
+    with pytest.raises(LookupError):
+        store.list_submissions("f" * 32, "employee")
+
+
+def test_list_submissions_track_not_enabled(store):
+    campaign = store.create_campaign("Acme", ["employee"])
+    with pytest.raises(ValueError):
+        store.list_submissions(campaign["campaign_id"], "organization")

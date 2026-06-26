@@ -107,6 +107,14 @@ def test_create_campaign_endpoint_rejects_bad_track(client):
     assert resp.status_code == 400
 
 
+def test_admin_page_served(client):
+    resp = client.get("/admin")
+    assert resp.status_code == 200
+    body = resp.get_data(as_text=True)
+    assert "admin.js" in body
+    assert "Local development" in body  # dev-only banner is present
+
+
 def test_list_campaigns_endpoint(client):
     cid = _create_campaign(client)
     resp = client.get("/api/campaigns")
@@ -118,6 +126,40 @@ def test_list_campaigns_endpoint(client):
 # --------------------------------------------------------------------------- #
 # save submission endpoint
 # --------------------------------------------------------------------------- #
+def test_submissions_endpoint_empty(client):
+    cid = _create_campaign(client, tracks=["employee"])
+    resp = client.get(f"/api/campaigns/{cid}/submissions")
+    assert resp.status_code == 200
+    assert resp.get_json()["submissions"] == {"employee": []}
+
+
+def test_submissions_endpoint_lists_saved(client):
+    cid = _create_campaign(client, tracks=["employee"])
+    rid = client.post(f"/saveAssessmentData/{cid}/employee", json=SAMPLE_PAYLOAD).get_json()["respondent_id"]
+    resp = client.get(f"/api/campaigns/{cid}/submissions")
+    assert resp.status_code == 200
+    rows = resp.get_json()["submissions"]["employee"]
+    assert rows == [{"respondent_id": rid, "has_report": False}]
+
+
+def test_submissions_endpoint_has_report_after_generate(client, mock_openai):
+    cid = _create_campaign(client, tracks=["employee"])
+    rid = client.post(f"/saveAssessmentData/{cid}/employee", json=SAMPLE_PAYLOAD).get_json()["respondent_id"]
+    client.post(f"/generateFeedback/{cid}/employee/{rid}")
+    rows = client.get(f"/api/campaigns/{cid}/submissions").get_json()["submissions"]["employee"]
+    assert rows == [{"respondent_id": rid, "has_report": True}]
+
+
+def test_submissions_endpoint_invalid_id(client):
+    resp = client.get("/api/campaigns/not-a-valid-id/submissions")
+    assert resp.status_code == 400
+
+
+def test_submissions_endpoint_unknown_campaign(client):
+    resp = client.get(f"/api/campaigns/{'f' * 32}/submissions")
+    assert resp.status_code == 404
+
+
 def test_save_submission_returns_respondent_id(client):
     cid = _create_campaign(client)
     resp = client.post(f"/saveAssessmentData/{cid}/employee", json=SAMPLE_PAYLOAD)

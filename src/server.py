@@ -83,6 +83,14 @@ def serve_index():
     return send_from_directory(app.static_folder, "index.html")
 
 
+@app.route("/admin")
+def serve_admin():
+    # Local-only campaign admin (dev convenience). The campaign API it drives is
+    # unauthenticated in Phase 1 and only safe on 127.0.0.1; auth lands in Phase 3
+    # (see docs/PHASE1_PLAN.md §3) before this is exposed anywhere hosted.
+    return send_from_directory(app.static_folder, "admin.html")
+
+
 @app.route("/api/questionnaire/<report_type>")
 def get_questionnaire(report_type):
     if report_type not in ALLOWED_REPORT_TYPES:
@@ -118,6 +126,27 @@ def create_campaign_endpoint():
         return _json_error("Could not create campaign from the supplied details.", 400)
 
     return jsonify({"status": "ok", "campaign": campaign}), 201
+
+
+@app.route("/api/campaigns/<campaign_id>/submissions", methods=["GET"])
+def list_submissions_endpoint(campaign_id):
+    if not campaign_store.is_valid_id(campaign_id):
+        return _json_error("Invalid campaign id.", 400)
+    campaign = campaign_store.get_campaign(campaign_id)
+    if campaign is None:
+        return _json_error("Campaign not found.", 404)
+
+    # Per track, list respondent ids and whether a report has been generated.
+    # No submission contents (PII) are read or returned — only opaque ids.
+    submissions = {}
+    for track in campaign.get("tracks", []):
+        rows = []
+        for respondent_id in campaign_store.list_submissions(campaign_id, track):
+            has_report = os.path.exists(campaign_store.report_path(campaign_id, track, respondent_id))
+            rows.append({"respondent_id": respondent_id, "has_report": has_report})
+        submissions[track] = rows
+
+    return jsonify({"status": "ok", "campaign": campaign, "submissions": submissions})
 
 
 @app.route("/saveAssessmentData/<campaign_id>/<track>", methods=["POST"])
