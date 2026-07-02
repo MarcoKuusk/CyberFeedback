@@ -83,6 +83,8 @@ Carry these requirements through **every** phase:
 
 ## Phase 2 — Organizational reports: aggregate, self-assessment, and the gap *(the artifact you sell)*
 
+> 📄 Detailed implementation plan: [PHASE2_PLAN.md](PHASE2_PLAN.md)
+
 **Goal:** Turn a campaign's two tracks into the three reports that make up the pitch.
 
 - **Employee aggregate** — `aggregate_assessment()` in [report_analysis.py](../src/utils/report_analysis.py): reuse `analyze_assessment()` per respondent, then aggregate across the employee track (mean overall score, per-category distribution, count in each maturity band, top gaps, participation rate).
