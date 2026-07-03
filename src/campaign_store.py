@@ -37,6 +37,9 @@ GENERATED_REPORT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "
 # step 5 rather than keeping its own ALLOWED_REPORT_TYPES copy.
 ALLOWED_TRACKS = {"employee", "organization"}
 
+# Org-level report modes (Phase 2). Validated like a track before any file I/O.
+ALLOWED_ORG_REPORT_MODES = {"aggregate", "organization", "combined"}
+
 _ID_RE = re.compile(r"^[0-9a-f]{32}$")
 _SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$")
 
@@ -54,6 +57,10 @@ def is_valid_id(value: Any) -> bool:
 
 def is_valid_track(track: Any) -> bool:
     return isinstance(track, str) and track in ALLOWED_TRACKS
+
+
+def is_valid_org_report_mode(mode: Any) -> bool:
+    return isinstance(mode, str) and mode in ALLOWED_ORG_REPORT_MODES
 
 
 def slugify(org_name: str) -> str:
@@ -229,3 +236,21 @@ def list_submissions(campaign_id: str, track: str) -> List[str]:
         if name.endswith(".json") and is_valid_id(name[:-5])
     ]
     return sorted(ids)
+
+
+# --------------------------------------------------------------------------- #
+# Org-level report output paths (Phase 2)
+# --------------------------------------------------------------------------- #
+def org_report_path(campaign_id: str, mode: str) -> str:
+    """Resolve the campaign-level org report PDF path (validated + contained).
+
+    Org rollups live under a reserved "_org" segment rather than a real
+    {track}/{respondent_id} location. "_org" is not in ALLOWED_TRACKS, so it can
+    never be produced as a track path and cannot collide with a respondent PDF.
+    """
+    campaign = get_campaign(campaign_id)
+    if campaign is None:
+        raise LookupError("Campaign not found.")
+    if mode not in ALLOWED_ORG_REPORT_MODES:
+        raise ValueError("Invalid report mode.")
+    return _safe_join(GENERATED_REPORT_DIR, campaign["org_slug"], campaign_id, "_org", f"{mode}.pdf")

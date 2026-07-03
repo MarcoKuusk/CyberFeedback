@@ -275,3 +275,34 @@ def test_list_submissions_track_not_enabled(store):
     campaign = store.create_campaign("Acme", ["employee"])
     with pytest.raises(ValueError):
         store.list_submissions(campaign["campaign_id"], "organization")
+
+
+# --------------------------------------------------------------------------- #
+# org report path (Phase 2)
+# --------------------------------------------------------------------------- #
+def test_org_report_path_is_contained(store):
+    campaign = store.create_campaign("Acme", ["employee", "organization"])
+    for mode in ("aggregate", "organization", "combined"):
+        path = store.org_report_path(campaign["campaign_id"], mode)
+        assert path.startswith(os.path.abspath(store.GENERATED_REPORT_DIR) + os.sep)
+        # Rollups live under a reserved "_org" segment, never a real track dir.
+        assert path.endswith(os.path.join("_org", f"{mode}.pdf"))
+
+
+def test_org_report_path_rejects_bad_mode(store):
+    campaign = store.create_campaign("Acme", ["employee"])
+    with pytest.raises(ValueError):
+        store.org_report_path(campaign["campaign_id"], "../../evil")
+    with pytest.raises(ValueError):
+        store.org_report_path(campaign["campaign_id"], "employee")  # a track is not a mode
+
+
+def test_org_report_path_unknown_campaign(store):
+    with pytest.raises(LookupError):
+        store.org_report_path("f" * 32, "aggregate")
+
+
+def test_org_report_mode_is_not_a_track(store):
+    # "_org" must never be a valid track, so it can't collide with a respondent dir.
+    assert "_org" not in store.ALLOWED_TRACKS
+    assert not store.is_valid_track("_org")

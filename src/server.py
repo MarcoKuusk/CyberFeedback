@@ -5,7 +5,8 @@ from typing import Any, Dict, Tuple
 from flask import Flask, jsonify, request, send_from_directory
 
 import campaign_store
-from main import generate_report
+from main import generate_org_report, generate_report
+from utils.report_analysis import MIN_AGGREGATE_N
 
 app = Flask(__name__, static_folder="webinterface")
 
@@ -14,6 +15,8 @@ QUESTIONNAIRE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "Que
 GENERATED_REPORT_DIR = campaign_store.GENERATED_REPORT_DIR
 # Single source of truth for tracks lives in campaign_store (Phase 1, step 5).
 ALLOWED_REPORT_TYPES = campaign_store.ALLOWED_TRACKS
+# Org-level report modes (Phase 2) — allowlisted like tracks before any file I/O.
+ALLOWED_ORG_REPORT_MODES = campaign_store.ALLOWED_ORG_REPORT_MODES
 
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(GENERATED_REPORT_DIR, exist_ok=True)
@@ -146,7 +149,16 @@ def list_submissions_endpoint(campaign_id):
             rows.append({"respondent_id": respondent_id, "has_report": has_report})
         submissions[track] = rows
 
-    return jsonify({"status": "ok", "campaign": campaign, "submissions": submissions})
+    # Surface the anonymity floor so the admin UI can explain why an aggregate is
+    # unavailable for a small employee track (no per-respondent data is exposed).
+    return jsonify(
+        {
+            "status": "ok",
+            "campaign": campaign,
+            "submissions": submissions,
+            "min_aggregate_n": MIN_AGGREGATE_N,
+        }
+    )
 
 
 @app.route("/saveAssessmentData/<campaign_id>/<track>", methods=["POST"])
@@ -238,6 +250,72 @@ def download_report(campaign_id, track, respondent_id):
         os.path.basename(file_path),
         as_attachment=True,
         download_name=f"{track}_feedback_report.pdf",
+    )
+
+
+@app.route("/generateOrgReport/<campaign_id>/<mode>", methods=["POST"])
+def generate_org_report_endpoint(campaign_id, mode):
+    # NOTE: Org-level reports expose *aggregated org data* and must be treated as
+    # leadership/admin-only. Like /api/campaigns, this is unauthenticated in
+    # Phase 2 and acceptable ONLY because the app binds 127.0.0.1. It MUST be
+    # auth-gated in Phase 3 before any hosting. The min-N anonymization inside
+    # aggregate_assessment is the second line of defense regardless of auth.
+    if mode not in ALLOWED_ORG_REPORT_MODES:
+        return _json_error("Invalid report mode.", 400)
+    if not campaign_store.is_valid_id(campaign_id):
+        return _json_error("Invalid campaign id.", 400)
+    if campaign_store.get_campaign(campaign_id) is None:
+        return _json_error("Campaign not found.", 404)
+
+    try:
+        output_path = campaign_store.org_report_path(campaign_id, mode)
+    except LookupError:
+        return _json_error("Campaign not found.", 404)
+    except ValueError:
+        return _json_error("Invalid report mode.", 400)
+
+    try:
+        report_file, _summary = generate_org_report(mode, campaign_id, output_path)
+    except LookupError:
+        return _json_error("Campaign not found.", 404)
+    except ValueError as exc:
+        return _json_error(str(exc), 400)
+    except RuntimeError as exc:
+        return _json_error(str(exc), 500)
+    except Exception:
+        return _json_error("Report generation failed. Check server logs for details.", 500)
+
+    return jsonify(
+        {
+            "status": "ok",
+            "message": f"{os.path.basename(report_file)} is ready.",
+            "mode": mode,
+        }
+    )
+
+
+@app.route("/downloadOrgReport/<campaign_id>/<mode>", methods=["GET"])
+def download_org_report(campaign_id, mode):
+    if mode not in ALLOWED_ORG_REPORT_MODES:
+        return _json_error("Invalid report mode.", 400)
+    if not campaign_store.is_valid_id(campaign_id):
+        return _json_error("Invalid campaign id.", 400)
+
+    try:
+        file_path = campaign_store.org_report_path(campaign_id, mode)
+    except ValueError:
+        return _json_error("Invalid report mode.", 400)
+    except LookupError:
+        return _json_error("Campaign not found.", 404)
+
+    if not os.path.exists(file_path):
+        return _json_error("Requested report is not available yet.", 404)
+
+    return send_from_directory(
+        os.path.dirname(file_path),
+        os.path.basename(file_path),
+        as_attachment=True,
+        download_name=f"{mode}_report.pdf",
     )
 
 

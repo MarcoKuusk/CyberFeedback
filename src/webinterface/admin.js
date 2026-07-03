@@ -166,13 +166,15 @@ async function refreshSubmissions(campaignId, container) {
         if (!response.ok) {
             throw new Error(result.message || 'Failed to load submissions.');
         }
-        renderSubmissions(container, campaignId, result.submissions || {});
+        renderSubmissions(container, campaignId, result);
     } catch (error) {
         container.replaceChildren(makeNote(error.message));
     }
 }
 
-function renderSubmissions(container, campaignId, submissions) {
+function renderSubmissions(container, campaignId, result) {
+    const submissions = result.submissions || {};
+    const minAggregateN = result.min_aggregate_n;
     const tracks = Object.keys(submissions);
     if (tracks.length === 0) {
         container.replaceChildren(makeNote('No tracks enabled for this campaign.'));
@@ -189,7 +191,76 @@ function renderSubmissions(container, campaignId, submissions) {
         }
         return block;
     });
+    blocks.push(buildOrgReportsBlock(campaignId, submissions, minAggregateN, container));
     container.replaceChildren(...blocks);
+}
+
+// Campaign-level org reports (Phase 2): aggregate, organization, combined.
+// A mode's button is disabled (with a tooltip) when its required track is not
+// enabled, so it's obvious why a report is unavailable.
+function buildOrgReportsBlock(campaignId, submissions, minAggregateN, container) {
+    const hasEmployee = Object.prototype.hasOwnProperty.call(submissions, 'employee');
+    const hasOrg = Object.prototype.hasOwnProperty.call(submissions, 'organization');
+    const employeeCount = (submissions.employee || []).length;
+
+    const block = el('div', 'track-block');
+    block.appendChild(el('p', 'track-title', 'Organization reports'));
+
+    if (typeof minAggregateN === 'number') {
+        const note = employeeCount >= minAggregateN
+            ? `${employeeCount} employee submissions — above the ${minAggregateN}-respondent anonymity threshold.`
+            : `${employeeCount} of ${minAggregateN} employee submissions — the aggregate is withheld until the anonymity threshold is met.`;
+        block.appendChild(makeNote(note));
+    }
+
+    const modes = [
+        { mode: 'aggregate', label: 'Aggregate', enabled: hasEmployee, reason: 'Requires the employee track.' },
+        { mode: 'organization', label: 'Organization', enabled: hasOrg, reason: 'Requires the organization track.' },
+        { mode: 'combined', label: 'Combined', enabled: hasEmployee && hasOrg, reason: 'Requires both tracks.' },
+    ];
+
+    modes.forEach(({ mode, label, enabled, reason }) => {
+        const rowEl = el('div', 'submission-row');
+        rowEl.appendChild(el('span', 'mono', mode));
+
+        const genButton = el('button', 'button button-secondary small', `Generate ${label}`);
+        genButton.type = 'button';
+        if (!enabled) {
+            genButton.disabled = true;
+            genButton.title = reason;
+        } else {
+            genButton.addEventListener('click', () => generateOrgReport(campaignId, mode, genButton, container));
+        }
+        rowEl.appendChild(genButton);
+
+        const download = el('a', 'button button-secondary small', 'Download');
+        download.href = `/downloadOrgReport/${campaignId}/${mode}`;
+        download.target = '_blank';
+        download.rel = 'noopener';
+        rowEl.appendChild(download);
+
+        block.appendChild(rowEl);
+    });
+
+    return block;
+}
+
+async function generateOrgReport(campaignId, mode, button, container) {
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Generating...';
+    try {
+        const response = await fetch(`/generateOrgReport/${campaignId}/${mode}`, { method: 'POST' });
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.message || 'Failed to generate report.');
+        }
+        await refreshSubmissions(campaignId, container);
+    } catch (error) {
+        button.disabled = false;
+        button.textContent = original;
+        container.appendChild(el('p', 'inline-error', error.message));
+    }
 }
 
 function buildSubmissionRow(campaignId, track, entry, container) {
