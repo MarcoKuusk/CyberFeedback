@@ -1,0 +1,922 @@
+{
+  "questions": [
+    {
+      "id": 1,
+      "category": "Identity & Access Management",
+      "question": "Kas nõuate mitmeastmelist autentimist (MFA) kõigis kriitilistes süsteemides, näiteks e-postis, finantstarkvaras ja kliendiandmebaasides?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Ei"
+        },
+        {
+          "value": 1,
+          "text": "Ainult administraatoritele"
+        },
+        {
+          "value": 2,
+          "text": "Mõnedele töötajatele"
+        },
+        {
+          "value": 3,
+          "text": "Enamikule töötajatele"
+        },
+        {
+          "value": 4,
+          "text": "Kohustuslik kõigile töötajatele"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "category": "Identity & Access Management",
+      "question": "Kui sageli vaadatakse kasutajate ligipääsuõigused üle?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Mitte kunagi"
+        },
+        {
+          "value": 1,
+          "text": "Kord aastas"
+        },
+        {
+          "value": 2,
+          "text": "Kaks korda aastas"
+        },
+        {
+          "value": 3,
+          "text": "Kord kvartalis"
+        },
+        {
+          "value": 4,
+          "text": "Kord kuus või pidevalt jälgitud"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "category": "Identity & Access Management",
+      "question": "Kas tugevad paroolireeglid on jõustatud?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Ei"
+        },
+        {
+          "value": 1,
+          "text": "Põhireeglid on olemas, kuid neid ei jälgita"
+        },
+        {
+          "value": 2,
+          "text": "Jõustatud ainult administraatoritele"
+        },
+        {
+          "value": 3,
+          "text": "Jõustatud enamikule töötajatele"
+        },
+        {
+          "value": 4,
+          "text": "Rangelt jõustatud kõigile töötajatele"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "category": "Identity & Access Management",
+      "question": "Kas mitteaktiivsed või töölt lahkunud töötajate kontod suletakse kohe?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Ametlik protsess puudub"
+        },
+        {
+          "value": 1,
+          "text": "Suletakse ühe kuu jooksul"
+        },
+        {
+          "value": 2,
+          "text": "Suletakse ühe nädala jooksul"
+        },
+        {
+          "value": 3,
+          "text": "Suletakse 48 tunni jooksul"
+        },
+        {
+          "value": 4,
+          "text": "Suletakse kohe töölt lahkumisel"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "category": "Identity & Access Management",
+      "question": "Kas töötajatel on ligipääs ainult nende tööks vajalikele andmetele ja süsteemidele?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Piiranguid pole"
+        },
+        {
+          "value": 1,
+          "text": "Piirangud on vähesed"
+        },
+        {
+          "value": 2,
+          "text": "Mõned osakonnad järgivad vähima õiguse põhimõtet"
+        },
+        {
+          "value": 3,
+          "text": "Enamik osakondi järgib vähima õiguse põhimõtet"
+        },
+        {
+          "value": 4,
+          "text": "Vähima õiguse põhimõte on kogu organisatsioonis jõustatud"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "category": "Identity & Access Management",
+      "question": "Kas organisatsioon pakub ja nõuab paroolihalduri kasutamist?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Ei"
+        },
+        {
+          "value": 1,
+          "text": "Saadaval, kuid mitte nõutud"
+        },
+        {
+          "value": 2,
+          "text": "Nõutud administraatoritele"
+        },
+        {
+          "value": 3,
+          "text": "Nõutud enamikule töötajatele"
+        },
+        {
+          "value": 4,
+          "text": "Nõutud kõigile töötajatele"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "category": "Software & Patch Management",
+      "question": "Kas organisatsioonil on keskne süsteem tarkvarauuenduste haldamiseks?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Ei"
+        },
+        {
+          "value": 1,
+          "text": "Kasutajad teevad uuendusi käsitsi"
+        },
+        {
+          "value": 2,
+          "text": "IT haldab uuendusi, kuid mitte automaatselt"
+        },
+        {
+          "value": 3,
+          "text": "Mõnede süsteemide uuendused on keskselt automatiseeritud"
+        },
+        {
+          "value": 4,
+          "text": "Täielikult automatiseeritud paikade haldus"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "category": "Software & Patch Management",
+      "question": "Kas teete regulaarselt haavatavuste skaneerimist?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Ei"
+        },
+        {
+          "value": 1,
+          "text": "Kord aastas"
+        },
+        {
+          "value": 2,
+          "text": "Kaks korda aastas"
+        },
+        {
+          "value": 3,
+          "text": "Kord kvartalis"
+        },
+        {
+          "value": 4,
+          "text": "Kord kuus või pidevalt jälgitud"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "category": "Software & Patch Management",
+      "question": "Kas viirusetõrje ja seadmekaitse lahendused on paigaldatud ning uuendatud?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Kaitse puudub"
+        },
+        {
+          "value": 1,
+          "text": "Paigaldatud, kuid mitte regulaarselt uuendatud"
+        },
+        {
+          "value": 2,
+          "text": "Paigaldatud ja aeg-ajalt uuendatud"
+        },
+        {
+          "value": 3,
+          "text": "Paigaldatud ja regulaarselt uuendatud"
+        },
+        {
+          "value": 4,
+          "text": "Paigaldatud, uuendatud ja keskselt jälgitud"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "category": "Software & Patch Management",
+      "question": "Kui sageli uuendatakse operatsioonisüsteeme, tarkvara ja rakendusi?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Mitte kunagi või harva"
+        },
+        {
+          "value": 1,
+          "text": "Ainult kriitilised uuendused käsitsi"
+        },
+        {
+          "value": 2,
+          "text": "Uuendused paigaldatakse 3 kuu jooksul"
+        },
+        {
+          "value": 3,
+          "text": "Uuendused paigaldatakse 1 kuu jooksul"
+        },
+        {
+          "value": 4,
+          "text": "Automaatne paikamissüsteem on kasutusel"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "category": "Data Classification & Protection",
+      "question": "Kas organisatsioonil on ametlik andmete klassifitseerimise poliitika?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Klassifitseerimise poliitika puudub"
+        },
+        {
+          "value": 1,
+          "text": "Põhiline klassifitseerimine on olemas"
+        },
+        {
+          "value": 2,
+          "text": "Klassifitseeritud andmetel on ligipääsupiirangud"
+        },
+        {
+          "value": 3,
+          "text": "Klassifitseeritud andmed on krüpteeritud"
+        },
+        {
+          "value": 4,
+          "text": "Andmed on krüpteeritud ja regulaarselt auditeeritud"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "category": "Data Classification & Protection",
+      "question": "Kas tundlikud failid ja suhtlus on krüpteeritud nii salvestamisel kui edastamisel?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Krüpteerimist ei kasutata"
+        },
+        {
+          "value": 1,
+          "text": "Põhiline krüpteerimine, kuid mitte jõustatud"
+        },
+        {
+          "value": 2,
+          "text": "Krüpteerimine on kasutusel mõnes süsteemis"
+        },
+        {
+          "value": 3,
+          "text": "Krüpteerimine on kasutusel enamikus süsteemides"
+        },
+        {
+          "value": 4,
+          "text": "Kõik tundlikud andmed on krüpteeritud"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "category": "Backup & Recovery",
+      "question": "Kas teil on andmete varunduse ja taastamise protsess?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Varundussüsteem puudub"
+        },
+        {
+          "value": 1,
+          "text": "Varukoopiad on olemas, kuid neid ei tehta regulaarselt"
+        },
+        {
+          "value": 2,
+          "text": "Varukoopiaid tehakse regulaarselt, kuid taastamist ei testita"
+        },
+        {
+          "value": 3,
+          "text": "Varukoopiaid tehakse regulaarselt ja taastamist testitakse aeg-ajalt"
+        },
+        {
+          "value": 4,
+          "text": "Varukoopiaid tehakse regulaarselt, krüpteeritult, turvaliselt ja taastamist testitakse tihti"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "category": "Backup & Recovery",
+      "question": "Kui sageli tehakse andmetest varukoopiaid?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Varundussüsteem puudub"
+        },
+        {
+          "value": 1,
+          "text": "Kord kuus"
+        },
+        {
+          "value": 2,
+          "text": "Kord nädalas"
+        },
+        {
+          "value": 3,
+          "text": "Iga päev"
+        },
+        {
+          "value": 4,
+          "text": "Pidev reaalajas varundus"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "category": "Backup & Recovery",
+      "question": "Kas varukoopiaid hoitakse turvaliselt väljaspool kontorit või pilves?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Varukoopiaid pole"
+        },
+        {
+          "value": 1,
+          "text": "Varukoopiaid hoitakse ainult kohapeal"
+        },
+        {
+          "value": 2,
+          "text": "Väljaspool asuvad varukoopiad pole krüpteeritud"
+        },
+        {
+          "value": 3,
+          "text": "Väljaspool asuvad varukoopiad on krüpteeritud"
+        },
+        {
+          "value": 4,
+          "text": "Krüpteeritud varukoopiad mitmes asukohas"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "category": "Backup & Recovery",
+      "question": "Kas varukoopiate taastamist testitakse regulaarselt?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Mitte kunagi"
+        },
+        {
+          "value": 1,
+          "text": "Kord aastas"
+        },
+        {
+          "value": 2,
+          "text": "Kaks korda aastas"
+        },
+        {
+          "value": 3,
+          "text": "Kord kvartalis"
+        },
+        {
+          "value": 4,
+          "text": "Kord kuus või sagedamini"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "category": "Security Awareness & Training",
+      "question": "Kui sageli saavad töötajad küberteadlikkuse koolitust?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Mitte kunagi"
+        },
+        {
+          "value": 1,
+          "text": "Ainult tööle asumisel"
+        },
+        {
+          "value": 2,
+          "text": "Kord aastas"
+        },
+        {
+          "value": 3,
+          "text": "Kaks korda aastas"
+        },
+        {
+          "value": 4,
+          "text": "Regulaarne pidev koolitus koos harjutustega"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "category": "Security Awareness & Training",
+      "question": "Kas töötajate teadlikkuse kontrollimiseks tehakse simuleeritud õngitsusrünnakuid?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Ei"
+        },
+        {
+          "value": 1,
+          "text": "Kord aastas"
+        },
+        {
+          "value": 2,
+          "text": "Kaks korda aastas"
+        },
+        {
+          "value": 3,
+          "text": "Kord kvartalis"
+        },
+        {
+          "value": 4,
+          "text": "Kord kuus koos detailse aruandlusega"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "category": "Security Awareness & Training",
+      "question": "Kas töötajad saavad rollipõhist küberkoolitust?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Ei"
+        },
+        {
+          "value": 1,
+          "text": "Põhikoolitus kõigile"
+        },
+        {
+          "value": 2,
+          "text": "Rollipõhine koolitus mõnele töötajale"
+        },
+        {
+          "value": 3,
+          "text": "Rollipõhine koolitus enamikule töötajatele"
+        },
+        {
+          "value": 4,
+          "text": "Pidev rollidele kohandatud koolitus"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "category": "Security Awareness & Training",
+      "question": "Kas töötajad teavad, kuidas teatada turvaintsidentidest ja kahtlasest tegevusest?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Teadlikkus puudub"
+        },
+        {
+          "value": 1,
+          "text": "Mõned töötajad teavad"
+        },
+        {
+          "value": 2,
+          "text": "Ametlik teavitussüsteem on olemas, kuid vähe tuntud"
+        },
+        {
+          "value": 3,
+          "text": "Ametlik süsteem on olemas ja enamik töötajaid teab seda"
+        },
+        {
+          "value": 4,
+          "text": "Selge ja hästi juurdunud teavituskord"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "category": "Security Awareness & Training",
+      "question": "Kas töötajad mõistavad ja järgivad aktiivselt küberohutuse tavasid?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Ootusi või poliitikaid pole"
+        },
+        {
+          "value": 1,
+          "text": "Põhipoliitikad on olemas, kuid koolitust pole"
+        },
+        {
+          "value": 2,
+          "text": "Töötajad saavad aeg-ajalt teadlikkuse koolitust"
+        },
+        {
+          "value": 3,
+          "text": "Töötajad teatavad aktiivselt ohtudest ja järgivad reegleid"
+        },
+        {
+          "value": 4,
+          "text": "Tugev küberturvalisuse kultuur on organisatsioonis juurdunud"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "category": "Network & Endpoint Security",
+      "question": "Kas organisatsioon jõustab turvalised Wi-Fi reeglid, näiteks tugev krüpteering, muudetud vaikeparoolid ja külalisvõrk?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Ei"
+        },
+        {
+          "value": 1,
+          "text": "Põhiturve, kuid vaikeparoole võib esineda"
+        },
+        {
+          "value": 2,
+          "text": "Turvalised seaded, kuid neid ei vaadata üle"
+        },
+        {
+          "value": 3,
+          "text": "Regulaarsed turbeülevaatused"
+        },
+        {
+          "value": 4,
+          "text": "Jõustatud reeglid koos jälgimisega"
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "category": "Network & Endpoint Security",
+      "question": "Kas kõik seadmed on kaitstud seadmeturbe lahendustega, näiteks viirusetõrje, tulemüür või EDR?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Kaitse puudub"
+        },
+        {
+          "value": 1,
+          "text": "Ainult põhiline viirusetõrje"
+        },
+        {
+          "value": 2,
+          "text": "Viirusetõrje ja põhiline tulemüür"
+        },
+        {
+          "value": 3,
+          "text": "Täiustatud seadmetuvastus ja reageerimine (EDR)"
+        },
+        {
+          "value": 4,
+          "text": "Täielikult hallatud EDR koos täiustatud ohutuvastusega"
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "category": "Network & Endpoint Security",
+      "question": "Kuidas on kaitstud kaugjuurdepääs ettevõtte süsteemidele?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Turvameetmeid pole"
+        },
+        {
+          "value": 1,
+          "text": "Põhiline VPN ligipääs"
+        },
+        {
+          "value": 2,
+          "text": "VPN koos MFA-ga"
+        },
+        {
+          "value": 3,
+          "text": "Ranged ligipääsukontrollid on osaliselt rakendatud"
+        },
+        {
+          "value": 4,
+          "text": "Täielik Zero Trust mudel rangete kontrollidega"
+        }
+      ]
+    },
+    {
+      "id": 25,
+      "category": "Incident Response & Business Continuity",
+      "question": "Kas organisatsioonil on dokumenteeritud intsidentidele reageerimise plaan?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Ei"
+        },
+        {
+          "value": 1,
+          "text": "Olemas, kuid pole testitud"
+        },
+        {
+          "value": 2,
+          "text": "Testitakse kord aastas"
+        },
+        {
+          "value": 3,
+          "text": "Testitakse kaks korda aastas"
+        },
+        {
+          "value": 4,
+          "text": "Regulaarselt testitud praktiliste harjutustega"
+        }
+      ]
+    },
+    {
+      "id": 26,
+      "category": "Incident Response & Business Continuity",
+      "question": "Kas teil on küberintsidentide ajal abiks küberturbe ekspert või teenusepakkuja?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Ei"
+        },
+        {
+          "value": 1,
+          "text": "Võimalusi hinnatakse"
+        },
+        {
+          "value": 2,
+          "text": "Väline partner on olemas, kuid SLA puudub"
+        },
+        {
+          "value": 3,
+          "text": "Partner on valmisolekulepinguga olemas"
+        },
+        {
+          "value": 4,
+          "text": "24/7 hädaabi tugi"
+        }
+      ]
+    },
+    {
+      "id": 27,
+      "category": "Incident Response & Business Continuity",
+      "question": "Kas turvaintsidente logitakse ja analüüsitakse mustrite leidmiseks?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Logimissüsteem puudub"
+        },
+        {
+          "value": 1,
+          "text": "Mõningane käsitsi logimine"
+        },
+        {
+          "value": 2,
+          "text": "Automaatne logimine, kuid analüüsi pole"
+        },
+        {
+          "value": 3,
+          "text": "Automaatne logimine koos perioodilise analüüsiga"
+        },
+        {
+          "value": 4,
+          "text": "Täiustatud logimine pideva jälgimise ja analüüsiga"
+        }
+      ]
+    },
+    {
+      "id": 28,
+      "category": "Incident Response & Business Continuity",
+      "question": "Kas ettevõttel on küberkindlustus küberintsidentide rahalise mõju vähendamiseks?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Ei"
+        },
+        {
+          "value": 1,
+          "text": "Võimalusi hinnatakse"
+        },
+        {
+          "value": 2,
+          "text": "Põhikaitse"
+        },
+        {
+          "value": 3,
+          "text": "Keskmine kaitse koos määratud intsidentide toega"
+        },
+        {
+          "value": 4,
+          "text": "Põhjalik küberkindlustus koos kriisijuhtimisega"
+        }
+      ]
+    },
+    {
+      "id": 29,
+      "category": "Incident Response & Business Continuity",
+      "question": "Kui kiiresti tuleb küberintsidentidest ettevõtte sees teatada?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Ametlik teavitamisprotsess puudub"
+        },
+        {
+          "value": 1,
+          "text": "Ühe nädala jooksul"
+        },
+        {
+          "value": 2,
+          "text": "72 tunni jooksul"
+        },
+        {
+          "value": 3,
+          "text": "24 tunni jooksul"
+        },
+        {
+          "value": 4,
+          "text": "Kohe"
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "category": "Compliance & Regulatory Alignment",
+      "question": "Kas organisatsioon järgib valdkonnale olulisi kübernõudeid või standardeid, näiteks ISO 27001, E-ITS või NIS2?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Nõuetele vastavusega ei tegeleta"
+        },
+        {
+          "value": 1,
+          "text": "Nõuetest ollakse teadlikud, kuid neid pole rakendatud"
+        },
+        {
+          "value": 2,
+          "text": "Osaliselt vastav"
+        },
+        {
+          "value": 3,
+          "text": "Enamasti vastav"
+        },
+        {
+          "value": 4,
+          "text": "Täielikult vastav koos audititega"
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "category": "Compliance & Regulatory Alignment",
+      "question": "Kas kolmandatelt osapooltelt nõutakse küberohutuse standardite täitmist?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Teenusepakkujatele turvanõudeid pole"
+        },
+        {
+          "value": 1,
+          "text": "Põhilised nõuded on olemas, kuid neid ei jõustata"
+        },
+        {
+          "value": 2,
+          "text": "Mõned teenusepakkujad peavad nõudeid täitma"
+        },
+        {
+          "value": 3,
+          "text": "Enamik teenusepakkujaid peab nõudeid täitma"
+        },
+        {
+          "value": 4,
+          "text": "Kõik teenusepakkujad peavad täitma rangeid nõudeid ja läbima kontrolli"
+        }
+      ]
+    },
+    {
+      "id": 32,
+      "category": "Physical Security",
+      "question": "Kas seadmed, näiteks sülearvutid ja serverid, on füüsiliselt kaitstud volitamata ligipääsu eest?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Füüsilised turvameetmed puuduvad"
+        },
+        {
+          "value": 1,
+          "text": "Põhimeetmed, näiteks lukustatud kontor"
+        },
+        {
+          "value": 2,
+          "text": "Tundlikud seadmed on kaitstud"
+        },
+        {
+          "value": 3,
+          "text": "Enamik seadmeid on kaitstud"
+        },
+        {
+          "value": 4,
+          "text": "Kõik seadmed on kaitstud ja jälgitud"
+        }
+      ]
+    },
+    {
+      "id": 33,
+      "category": "Third-Party Risk",
+      "question": "Kas hindate teenusepakkujate või partnerite küberpraktikaid enne andmete või süsteemiligipääsu jagamist?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Teenusepakkujaid ei hinnata"
+        },
+        {
+          "value": 1,
+          "text": "Mitteametlik suuline kinnitus"
+        },
+        {
+          "value": 2,
+          "text": "Põhiline kontrollnimekiri kriitilistele partneritele"
+        },
+        {
+          "value": 3,
+          "text": "Ametlik hindamine kõigile partneritele"
+        },
+        {
+          "value": 4,
+          "text": "Teenusepakkujate turvet jälgitakse pidevalt"
+        }
+      ]
+    },
+    {
+      "id": 34,
+      "category": "Remote Work Security",
+      "question": "Kas töötajad peavad ettevõtte andmetele kaugtööl ligi pääsedes kasutama VPN-i või turvalisi võrke?",
+      "answers": [
+        {
+          "value": 0,
+          "text": "Nõudeid pole"
+        },
+        {
+          "value": 1,
+          "text": "Soovitatud, kuid mitte jõustatud"
+        },
+        {
+          "value": 2,
+          "text": "Jõustatud administraatoritele"
+        },
+        {
+          "value": 3,
+          "text": "Jõustatud enamikule töötajatele"
+        },
+        {
+          "value": 4,
+          "text": "Kohustuslik kogu kaugjuurdepääsule"
+        }
+      ]
+    }
+  ]
+}

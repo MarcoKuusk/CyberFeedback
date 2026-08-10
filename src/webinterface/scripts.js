@@ -321,9 +321,9 @@ function summarizeAssessment(responses) {
         maxScore += possible;
 
         if (scoreRatio >= 0.75) {
-            strengths.push(`${item.question} — ${selected.option}`);
+            strengths.push(`${item.question} â€” ${selected.option}`);
         } else {
-            watchItems.push(`${item.question} — ${selected.option}`);
+            watchItems.push(`${item.question} â€” ${selected.option}`);
             actions.push(makeActionSuggestion(item));
         }
     });
