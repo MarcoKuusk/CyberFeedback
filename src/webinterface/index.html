@@ -28,6 +28,32 @@
 
         <main class="content">
             <section id="home" class="page page-active">
+                <article class="card compact-card" id="campaignCard">
+                    <p class="eyebrow" id="campaignEyebrow">Campaign</p>
+                    <h3 id="campaignHeading">Checking your assessment link...</h3>
+                    <p id="campaignDetail">One moment.</p>
+
+                    <div id="campaignCreate" class="hidden">
+                        <div class="campaign-form">
+                            <label for="newOrgName">Organization name</label>
+                            <input type="text" id="newOrgName" placeholder="Acme Ltd" autocomplete="off">
+                            <fieldset>
+                                <legend>Tracks</legend>
+                                <label><input type="checkbox" id="trackEmployee" checked> Employee (staff-wide)</label>
+                                <label><input type="checkbox" id="trackOrganization" checked> Organization (leadership)</label>
+                            </fieldset>
+                            <label for="newLocale">Language</label>
+                            <select id="newLocale">
+                                <option value="en" selected>English</option>
+                                <option value="et">Eesti</option>
+                            </select>
+                            <button class="button button-primary" id="createCampaignButton">Create campaign</button>
+                        </div>
+                        <p id="campaignCreateStatus" class="status-message"></p>
+                        <div id="campaignLinks" class="campaign-links hidden"></div>
+                    </div>
+                </article>
+
                 <div class="hero card">
                     <div>
                         <p class="eyebrow">Cyber hygiene reporting for SMEs</p>
@@ -78,6 +104,45 @@
                 <section id="assessmentIntro" class="card compact-card intro-state">
                     <h3>Select a report type</h3>
                     <p>Start an employee assessment for individual coaching or an organization assessment for management-focused recommendations.</p>
+                </section>
+
+                <section id="consentSection" class="card hidden">
+                    <div class="section-header">
+                        <div>
+                            <p class="eyebrow">Before you begin</p>
+                            <h3>Consent to participate</h3>
+                        </div>
+                    </div>
+                    <div class="consent-body">
+                        <p><strong>Your individual answers are private.</strong> Your employer never sees your
+                        answers or your personal report. Only you receive your own report.</p>
+                        <ul>
+                            <li>Your answers are combined with your colleagues' into an <strong>anonymous
+                            team summary</strong>. No category is reported unless at least five people
+                            have answered, so individuals cannot be identified.</li>
+                            <li>Your answers are also used, in anonymous form, for
+                            <strong>academic research</strong> (a master's thesis on cyber hygiene in
+                            small and medium organizations). Your name and your employer's name are
+                            never published.</li>
+                            <li>To write your report, your answers are sent to <strong>OpenAI</strong>,
+                            an external AI service, in a form that does not include your name.</li>
+                            <li>No name, email address, or job title is collected by this tool.</li>
+                            <li>Participation is <strong>voluntary</strong>. You may stop at any point
+                            before submitting, and nothing is saved until you submit.</li>
+                        </ul>
+                        <p class="consent-meta">Consent text version <span id="consentVersionLabel">-</span>.
+                        Questions about how your data is handled can be raised with the person running
+                        this assessment.</p>
+                    </div>
+                    <label class="consent-check">
+                        <input type="checkbox" id="consentCheckbox">
+                        <span>I have read the above and agree to take part on these terms.</span>
+                    </label>
+                    <div id="consentError" class="inline-error hidden">Please agree to the terms to continue.</div>
+                    <div class="assessment-actions">
+                        <button id="consentBackButton" class="button button-secondary">Cancel</button>
+                        <button id="consentContinueButton" class="button button-primary">Agree and start</button>
+                    </div>
                 </section>
 
                 <section id="assessmentSection" class="card hidden">

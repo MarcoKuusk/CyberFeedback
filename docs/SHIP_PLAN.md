@@ -29,6 +29,29 @@ Small, unambiguous, no design decisions. Cleared before Block 1 so the foundatio
 - **Do not delete `src/data/cyber_readiness.db`** — inspecting it changed the plan (§ Recovered from the earlier prototype).
 - Add `pytest` and a `tests/` scaffold so Block 1 can be test-driven from its first commit. Nine tests now pin the scoring engine's arithmetic and band boundaries — `analyze_assessment` is the foundation of the aggregate, the gap report, and the research export, so it must not shift silently underneath them.
 
+## Correction: PDF generation was completely broken
+
+Found on day 3 by the first test that tried to render a report. `_build_styles()`
+registered a paragraph style named `Bullet`, but ReportLab's
+`getSampleStyleSheet()` already defines that name and `StyleSheet1.add()` raises
+`KeyError` on a duplicate — so **every** call raised, and no PDF could ever be
+produced. The bare `except Exception` in the old request handler turned it into a
+generic "Report generation failed. Check server logs for details."
+
+Fixed by renaming the style to `ReportBullet`, with regression tests asserting
+that `_build_styles()` succeeds and that no custom style name collides with a
+ReportLab builtin.
+
+Two consequences for this plan:
+
+- The claim that "the genuinely hard parts are done" was wrong about the PDF
+  layout. It had never run. Day 10's report read-through is now the first time
+  anyone sees real output, so treat that day as load-bearing rather than polish.
+- Broad `except Exception` handlers hid a total failure of the product's main
+  deliverable for at least one commit. The day-16 security pass should sweep for
+  others, and new handlers should log the exception server-side rather than
+  discard it.
+
 ## Recovered from the earlier prototype
 
 `src/data/cyber_readiness.db` is not stale junk. It is a June 2026 implementation that already had the architecture this roadmap proposes — `projects` with `preferred_language`, per-assessment `language`, and `generated_reports` tracking `ai_used`/`ai_model`/`ai_status`. Three things follow:

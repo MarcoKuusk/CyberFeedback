@@ -1,6 +1,15 @@
+// Consent text version recorded with every submission.
+// NOTE: the wording in index.html is a DRAFT pending ethics review. Bump this
+// to '1.0' only once the approved text is in place, so stored records always
+// say which version a respondent actually agreed to.
+const CONSENT_VERSION = '1.0-draft';
+
 const state = {
     currentPage: 'home',
+    campaign: null,
     reportType: null,
+    respondentId: null,
+    consentAgreed: false,
     questions: [],
     currentQuestionIndex: 0,
     answers: [],
@@ -18,7 +27,22 @@ document.addEventListener('DOMContentLoaded', () => {
     cacheElements();
     bindEvents();
     showPage('home');
+    resolveCampaign();
 });
+
+/**
+ * Escape before any interpolation into innerHTML. Questionnaire text is trusted
+ * configuration, but org_name arrives from campaign creation, so nothing
+ * user-influenced may reach the DOM as raw markup.
+ */
+function escapeHtml(value) {
+    return String(value === null || value === undefined ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
 
 function cacheElements() {
     elements.pages = document.querySelectorAll('.page');
@@ -27,6 +51,7 @@ function cacheElements() {
     elements.segments = document.querySelectorAll('.segment');
     elements.homeLink = document.getElementById('homeLink');
     elements.assessmentIntro = document.getElementById('assessmentIntro');
+    elements.consentSection = document.getElementById('consentSection');
     elements.assessmentSection = document.getElementById('assessmentSection');
     elements.reviewSection = document.getElementById('reviewSection');
     elements.feedbackSection = document.getElementById('feedbackSection');
@@ -56,6 +81,26 @@ function cacheElements() {
     elements.categoryScoreList = document.getElementById('categoryScoreList');
     elements.downloadButton = document.getElementById('downloadButton');
     elements.reportStatus = document.getElementById('reportStatus');
+
+    // Campaign gate
+    elements.campaignEyebrow = document.getElementById('campaignEyebrow');
+    elements.campaignHeading = document.getElementById('campaignHeading');
+    elements.campaignDetail = document.getElementById('campaignDetail');
+    elements.campaignCreate = document.getElementById('campaignCreate');
+    elements.newOrgName = document.getElementById('newOrgName');
+    elements.trackEmployee = document.getElementById('trackEmployee');
+    elements.trackOrganization = document.getElementById('trackOrganization');
+    elements.newLocale = document.getElementById('newLocale');
+    elements.createCampaignButton = document.getElementById('createCampaignButton');
+    elements.campaignCreateStatus = document.getElementById('campaignCreateStatus');
+    elements.campaignLinks = document.getElementById('campaignLinks');
+
+    // Consent
+    elements.consentCheckbox = document.getElementById('consentCheckbox');
+    elements.consentError = document.getElementById('consentError');
+    elements.consentContinueButton = document.getElementById('consentContinueButton');
+    elements.consentBackButton = document.getElementById('consentBackButton');
+    elements.consentVersionLabel = document.getElementById('consentVersionLabel');
 }
 
 function bindEvents() {
@@ -83,6 +128,20 @@ function bindEvents() {
     });
     elements.submitAssessmentButton.addEventListener('click', submitAssessment);
     elements.downloadButton.addEventListener('click', generateAndDownloadReport);
+
+    elements.createCampaignButton.addEventListener('click', createCampaign);
+    elements.consentContinueButton.addEventListener('click', acceptConsent);
+    elements.consentBackButton.addEventListener('click', () => {
+        toggleSection('intro');
+        showPage('home');
+    });
+    elements.consentCheckbox.addEventListener('change', () => {
+        if (elements.consentCheckbox.checked) {
+            elements.consentError.classList.add('hidden');
+        }
+    });
+
+    elements.consentVersionLabel.textContent = CONSENT_VERSION;
 }
 
 function showPage(pageId) {
@@ -90,7 +149,118 @@ function showPage(pageId) {
     elements.pages.forEach((page) => page.classList.toggle('page-active', page.id === pageId));
 }
 
+// ---------------------------------------------------------------------------
+// Campaign context
+// ---------------------------------------------------------------------------
+
+function campaignIdFromUrl() {
+    const value = new URLSearchParams(window.location.search).get('campaign');
+    return value && /^[0-9a-f]{32}$/.test(value) ? value : null;
+}
+
+async function resolveCampaign() {
+    const campaignId = campaignIdFromUrl();
+
+    if (!campaignId) {
+        elements.campaignEyebrow.textContent = 'No campaign link';
+        elements.campaignHeading.textContent = 'An assessment link is required';
+        elements.campaignDetail.textContent =
+            'Open the link provided by the person running this assessment. If you are running it, create a campaign below.';
+        elements.campaignCreate.classList.remove('hidden');
+        setTrackAvailability([]);
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/campaigns/${campaignId}`);
+        const payload = await response.json();
+        if (!response.ok) {
+            throw new Error(payload.message || 'Campaign could not be loaded.');
+        }
+
+        state.campaign = payload.campaign;
+
+        if (state.campaign.status !== 'open') {
+            elements.campaignEyebrow.textContent = 'Campaign closed';
+            elements.campaignHeading.textContent = 'This assessment is no longer accepting responses';
+            elements.campaignDetail.textContent = 'Contact the person who sent you this link.';
+            setTrackAvailability([]);
+            return;
+        }
+
+        elements.campaignEyebrow.textContent = 'Assessment for';
+        elements.campaignHeading.textContent = state.campaign.org_name;
+        elements.campaignDetail.textContent =
+            'Your individual answers are private and are never shown to your employer. You will be asked to consent before starting.';
+        setTrackAvailability(state.campaign.tracks);
+    } catch (error) {
+        elements.campaignEyebrow.textContent = 'Link problem';
+        elements.campaignHeading.textContent = 'This assessment link is not valid';
+        elements.campaignDetail.textContent = error.message;
+        setTrackAvailability([]);
+    }
+}
+
+function setTrackAvailability(tracks) {
+    const enabled = new Set(tracks);
+    elements.startButtons.forEach((button) => {
+        const available = enabled.has(button.dataset.start);
+        button.disabled = !available;
+        button.title = available ? '' : 'Not enabled for this campaign';
+    });
+}
+
+async function createCampaign() {
+    const tracks = [];
+    if (elements.trackEmployee.checked) tracks.push('employee');
+    if (elements.trackOrganization.checked) tracks.push('organization');
+
+    elements.campaignCreateStatus.textContent = 'Creating campaign...';
+    elements.campaignLinks.classList.add('hidden');
+
+    try {
+        const response = await fetch('/api/campaigns', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                org_name: elements.newOrgName.value,
+                tracks,
+                locale: elements.newLocale.value,
+            }),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+            throw new Error(payload.message || 'Campaign could not be created.');
+        }
+
+        const link = `${window.location.origin}/?campaign=${payload.campaign.campaign_id}`;
+        elements.campaignCreateStatus.textContent = 'Campaign created. Share this link with participants:';
+        elements.campaignLinks.innerHTML = `<code>${escapeHtml(link)}</code>`;
+        elements.campaignLinks.classList.remove('hidden');
+    } catch (error) {
+        elements.campaignCreateStatus.textContent = error.message;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Assessment flow
+// ---------------------------------------------------------------------------
+
 async function startAssessment(reportType) {
+    if (!state.campaign) {
+        showPage('home');
+        return;
+    }
+    if (!state.campaign.tracks.includes(reportType)) {
+        return;
+    }
+
+    // A new track means a new respondent record and fresh consent.
+    if (state.reportType !== reportType) {
+        state.respondentId = null;
+        state.consentAgreed = false;
+    }
+
     state.reportType = reportType;
     setActiveSegment(reportType);
     showPage('workspace');
@@ -112,13 +282,29 @@ async function startAssessment(reportType) {
         elements.workspaceTitle.textContent = `${reportLabels[reportType]} cyber hygiene assessment`;
         elements.workspaceSubtitle.textContent = 'Answer based on current practice. You can review everything before saving.';
 
-        toggleSection('assessment');
-        renderQuestion();
+        if (state.consentAgreed) {
+            toggleSection('assessment');
+            renderQuestion();
+        } else {
+            elements.consentCheckbox.checked = false;
+            elements.consentError.classList.add('hidden');
+            toggleSection('consent');
+        }
         setStatus('Summary view will appear after you review and submit your responses.', '');
     } catch (error) {
         toggleSection('intro');
         setStatus(error.message, 'error');
     }
+}
+
+function acceptConsent() {
+    if (!elements.consentCheckbox.checked) {
+        elements.consentError.classList.remove('hidden');
+        return;
+    }
+    state.consentAgreed = true;
+    toggleSection('assessment');
+    renderQuestion();
 }
 
 function flattenQuestions(reportType, questionnaire) {
@@ -153,6 +339,7 @@ function setActiveSegment(reportType) {
 
 function toggleSection(section) {
     elements.assessmentIntro.classList.toggle('hidden', section !== 'intro');
+    elements.consentSection.classList.toggle('hidden', section !== 'consent');
     elements.assessmentSection.classList.toggle('hidden', section !== 'assessment');
     elements.reviewSection.classList.toggle('hidden', section !== 'review');
     elements.feedbackSection.classList.toggle('hidden', section !== 'feedback');
@@ -175,10 +362,10 @@ function renderQuestion() {
         .map(
             (answer, index) => `
                 <label class="option-card ${selectedScore === answer.score ? 'selected' : ''}">
-                    <input type="radio" name="answer" value="${answer.score}" ${selectedScore === answer.score ? 'checked' : ''}>
+                    <input type="radio" name="answer" value="${escapeHtml(answer.score)}" ${selectedScore === answer.score ? 'checked' : ''}>
                     <span>
                         <strong>Option ${index + 1}</strong>
-                        <span>${answer.option}</span>
+                        <span>${escapeHtml(answer.option)}</span>
                     </span>
                 </label>
             `
@@ -223,9 +410,9 @@ function renderReview() {
         const selectedAnswer = question.answers.find((answer) => answer.score === selectedScore);
         return `
             <article class="review-item">
-                <p class="review-category">${question.category}</p>
-                <h4>${question.question}</h4>
-                <p class="review-answer">${selectedAnswer ? selectedAnswer.option : 'No answer selected'}</p>
+                <p class="review-category">${escapeHtml(question.category)}</p>
+                <h4>${escapeHtml(question.question)}</h4>
+                <p class="review-answer">${escapeHtml(selectedAnswer ? selectedAnswer.option : 'No answer selected')}</p>
             </article>
         `;
     });
@@ -259,15 +446,29 @@ function buildAssessmentPayload() {
             report_type: state.reportType,
             generated_from: 'web-interface',
         },
+        consent: {
+            agreed: state.consentAgreed,
+            version: CONSENT_VERSION,
+        },
     };
 }
 
 async function submitAssessment() {
+    if (!state.campaign) {
+        setStatus('No campaign context. Reopen your assessment link.', 'error');
+        return;
+    }
+    if (!state.consentAgreed) {
+        setStatus('Consent is required before your assessment can be saved.', 'error');
+        return;
+    }
+
     const payload = buildAssessmentPayload();
+    elements.submitAssessmentButton.disabled = true;
     setStatus('Saving your assessment...', '');
 
     try {
-        const response = await fetch(`/saveAssessmentData/${state.reportType}`, {
+        const response = await fetch(`/saveAssessmentData/${state.campaign.campaign_id}/${state.reportType}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
@@ -277,12 +478,15 @@ async function submitAssessment() {
             throw new Error(result.message || 'Failed to save assessment.');
         }
 
+        state.respondentId = result.respondent_id;
         state.summary = summarizeAssessment(payload.responses);
         renderFeedback();
         toggleSection('feedback');
         setStatus('Assessment saved. Your summary is ready below.', 'success');
     } catch (error) {
         setStatus(error.message, 'error');
+    } finally {
+        elements.submitAssessmentButton.disabled = false;
     }
 }
 
@@ -302,13 +506,6 @@ function summarizeAssessment(responses) {
 
         const possible = Math.max(...item.answers.map((answer) => answer.score));
         const scoreRatio = possible ? selected.score / possible : 0;
-        const entry = {
-            category: item.category,
-            question: item.question,
-            answer: selected.option,
-            score: selected.score,
-            maxScore: possible,
-        };
 
         if (!categoryTotals.has(item.category)) {
             categoryTotals.set(item.category, { earned: 0, possible: 0 });
@@ -392,10 +589,10 @@ function renderFeedback() {
             return `
                 <div class="score-row">
                     <div class="score-head">
-                        <strong>${item.category}</strong>
-                        <span>${item.score}%</span>
+                        <strong>${escapeHtml(item.category)}</strong>
+                        <span>${escapeHtml(item.score)}%</span>
                     </div>
-                    <div class="score-bar"><div class="score-fill" style="width:${item.score}%; background:${tone};"></div></div>
+                    <div class="score-bar"><div class="score-fill" style="width:${Number(item.score)}%; background:${tone};"></div></div>
                 </div>
             `;
         })
@@ -404,31 +601,32 @@ function renderFeedback() {
 
 function renderDetailList(element, items, emptyMessage) {
     if (!items.length) {
-        element.innerHTML = `<li>${emptyMessage}</li>`;
+        element.innerHTML = `<li>${escapeHtml(emptyMessage)}</li>`;
         return;
     }
-    element.innerHTML = items.map((item) => `<li>${item}</li>`).join('');
+    element.innerHTML = items.map((item) => `<li>${escapeHtml(item)}</li>`).join('');
 }
 
 async function generateAndDownloadReport() {
-    if (!state.reportType) {
-        setStatus('Start an assessment before generating a report.', 'error');
+    if (!state.campaign || !state.reportType || !state.respondentId) {
+        setStatus('Save your assessment before generating a report.', 'error');
         return;
     }
 
+    const base = `${state.campaign.campaign_id}/${state.reportType}/${state.respondentId}`;
     elements.downloadButton.disabled = true;
     setStatus('Generating your PDF report. This can take a moment.', '');
 
     try {
-        const response = await fetch(`/generateFeedback/${state.reportType}`, { method: 'POST' });
+        const response = await fetch(`/generateFeedback/${base}`, { method: 'POST' });
         const payload = await response.json();
         if (!response.ok) {
             throw new Error(payload.message || 'Failed to generate the report.');
         }
 
         const link = document.createElement('a');
-        link.href = `/downloadReport/${state.reportType}`;
-        link.download = `${state.reportType}_feedback_report.pdf`;
+        link.href = `/downloadReport/${base}`;
+        link.download = `${state.reportType}_cyber_hygiene_report.pdf`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);

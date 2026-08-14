@@ -422,3 +422,120 @@ a {
         width: 100%;
     }
 }
+
+/* Campaign gate and consent (Phase 1) */
+.campaign-form {
+    display: grid;
+    gap: 10px;
+    max-width: 460px;
+    margin-top: 16px;
+}
+
+.campaign-form label {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.campaign-form input[type="text"],
+.campaign-form select {
+    padding: 11px 13px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
+}
+
+.campaign-form input[type="text"]:focus,
+.campaign-form select:focus {
+    outline: 2px solid var(--brand);
+    outline-offset: 1px;
+}
+
+.campaign-form fieldset {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: grid;
+    gap: 8px;
+}
+
+.campaign-form fieldset legend {
+    padding: 0 6px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--muted);
+}
+
+.campaign-form fieldset label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    color: var(--ink);
+}
+
+.campaign-form .button {
+    justify-self: start;
+    margin-top: 4px;
+}
+
+.campaign-links {
+    margin-top: 10px;
+    padding: 12px 14px;
+    background: var(--surface-alt);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow-wrap: anywhere;
+}
+
+.campaign-links code {
+    font-size: 0.92rem;
+    color: var(--brand-strong);
+}
+
+.consent-body {
+    max-width: 720px;
+}
+
+.consent-body p,
+.consent-body li {
+    color: var(--ink);
+    line-height: 1.6;
+}
+
+.consent-body ul {
+    padding-left: 20px;
+    display: grid;
+    gap: 8px;
+}
+
+.consent-meta {
+    font-size: 0.88rem;
+    color: var(--muted);
+}
+
+.consent-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 18px 0 4px;
+    padding: 14px 16px;
+    background: var(--surface-alt);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    max-width: 720px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.consent-check input {
+    margin-top: 3px;
+    flex-shrink: 0;
+}
+
+button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}

@@ -1,39 +1,80 @@
+import hmac
 import json
 import os
+from functools import wraps
 from typing import Any, Dict, Tuple
 
 from flask import Flask, jsonify, request, send_from_directory
 
-from main import generate_report, load_assessment_payload
+import campaign_store as store
+from campaign_store import ALLOWED_LOCALES, ALLOWED_TRACKS, CampaignNotFoundError, InvalidInputError
+from main import generate_report
 
 app = Flask(__name__, static_folder="webinterface")
 
-DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "data"))
 QUESTIONNAIRE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "Question_And_Data"))
-GENERATED_REPORT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "Generated_PDF_Report"))
-ALLOWED_REPORT_TYPES = {"employee", "organization"}
 
-os.makedirs(DATA_DIR, exist_ok=True)
-os.makedirs(GENERATED_REPORT_DIR, exist_ok=True)
+os.makedirs(store.DATA_DIR, exist_ok=True)
+os.makedirs(store.REPORT_DIR, exist_ok=True)
 
-
-def _assessment_file(report_type: str) -> str:
-    return os.path.join(DATA_DIR, f"{report_type}_assessment.json")
+LOOPBACK_ADDRESSES = {"127.0.0.1", "::1"}
 
 
-def _questionnaire_file(report_type: str) -> str:
-    return os.path.join(QUESTIONNAIRE_DIR, f"{report_type}_questionnaire.json")
+def _questionnaire_file(track: str) -> str:
+    return os.path.join(QUESTIONNAIRE_DIR, f"{track}_questionnaire.json")
 
 
 def _json_error(message: str, status: int):
     return jsonify({"status": "error", "message": message}), status
 
 
+# ---------------------------------------------------------------------------
+# Admin gate
+# ---------------------------------------------------------------------------
+
+def _admin_ok() -> bool:
+    """Guard campaign management.
+
+    PHASE1_PLAN flagged unauthenticated campaign creation as acceptable only
+    while the app binds 127.0.0.1. The pilot binds to the org's LAN, at which
+    point every employee could reach it, so the gate lands now: a token if
+    CYBERFEEDBACK_ADMIN_TOKEN is set, loopback-only otherwise.
+    """
+    token = os.getenv("CYBERFEEDBACK_ADMIN_TOKEN", "").strip()
+    if token:
+        return hmac.compare_digest(request.headers.get("X-Admin-Token", ""), token)
+    return request.remote_addr in LOOPBACK_ADDRESSES
+
+
+def _require_admin(view):
+    @wraps(view)
+    def wrapper(*args, **kwargs):
+        if not _admin_ok():
+            return _json_error("Not authorized.", 403)
+        return view(*args, **kwargs)
+
+    return wrapper
+
+
+# ---------------------------------------------------------------------------
+# Validation — each returns (bool, str) per the established convention
+# ---------------------------------------------------------------------------
+
 def _validate_selected_answer(item: Dict[str, Any]) -> bool:
     selected = item.get("selectedAnswer")
     if selected is None:
         return True
     return isinstance(selected, dict) and isinstance(selected.get("option"), str) and isinstance(selected.get("score"), int)
+
+
+def _validate_consent_block(consent: Any) -> Tuple[bool, str]:
+    if not isinstance(consent, dict):
+        return False, "Consent is required before an assessment can be saved."
+    if consent.get("agreed") is not True:
+        return False, "Consent is required before an assessment can be saved."
+    if not isinstance(consent.get("version"), str) or not consent["version"].strip():
+        return False, "Consent version is missing."
+    return True, ""
 
 
 def _validate_payload(payload: Any) -> Tuple[bool, str]:
@@ -57,20 +98,105 @@ def _validate_payload(payload: Any) -> Tuple[bool, str]:
         if not _validate_selected_answer(item):
             return False, "Selected answers must include option and score values."
 
+    return _validate_consent_block(payload.get("consent"))
+
+
+def _validate_campaign(payload: Any) -> Tuple[bool, str]:
+    if not isinstance(payload, dict):
+        return False, "Request body must be an object."
+
+    org_name = payload.get("org_name")
+    if not isinstance(org_name, str) or not org_name.strip():
+        return False, "Organization name is required."
+
+    tracks = payload.get("tracks")
+    if not isinstance(tracks, list) or not tracks:
+        return False, "At least one track must be selected."
+    if any(track not in ALLOWED_TRACKS for track in tracks):
+        return False, "Invalid track requested."
+
+    locale = payload.get("locale", "en")
+    if locale not in ALLOWED_LOCALES:
+        return False, "Invalid locale requested."
+
     return True, ""
 
 
-@app.route("/")
-def serve_index():
-    return send_from_directory(app.static_folder, "index.html")
+def _public_campaign(campaign: Dict[str, Any]) -> Dict[str, Any]:
+    """Projection safe to hand to anyone holding the campaign link."""
+    return {
+        "campaign_id": campaign["campaign_id"],
+        "org_name": campaign["org_name"],
+        "tracks": campaign["tracks"],
+        "locale": campaign.get("locale", "en"),
+        "status": campaign.get("status", "open"),
+    }
 
 
-@app.route("/api/questionnaire/<report_type>")
-def get_questionnaire(report_type):
-    if report_type not in ALLOWED_REPORT_TYPES:
+# ---------------------------------------------------------------------------
+# Campaign management
+# ---------------------------------------------------------------------------
+
+@app.route("/api/campaigns", methods=["POST"])
+@_require_admin
+def create_campaign():
+    payload = request.get_json(silent=True)
+    is_valid, error_message = _validate_campaign(payload)
+    if not is_valid:
+        return _json_error(error_message, 400)
+
+    try:
+        campaign = store.create_campaign(payload["org_name"], payload["tracks"], locale=payload.get("locale", "en"))
+    except InvalidInputError:
+        return _json_error("Invalid campaign details.", 400)
+
+    return jsonify({"status": "ok", "campaign": _public_campaign(campaign)}), 201
+
+
+@app.route("/api/campaigns", methods=["GET"])
+@_require_admin
+def list_campaigns():
+    campaigns = store.list_campaigns()
+    return jsonify(
+        {
+            "status": "ok",
+            "campaigns": [
+                {
+                    **_public_campaign(campaign),
+                    "created_at": campaign.get("created_at"),
+                    "participation": {
+                        track: len(store.list_respondents(campaign["campaign_id"], track))
+                        for track in campaign.get("tracks", [])
+                    },
+                }
+                for campaign in campaigns
+            ],
+        }
+    )
+
+
+@app.route("/api/campaigns/<campaign_id>", methods=["GET"])
+def get_campaign(campaign_id):
+    """Public: a respondent holding the link resolves which tracks are open."""
+    try:
+        campaign = store.get_campaign(campaign_id)
+    except InvalidInputError:
+        return _json_error("Invalid campaign.", 400)
+    if campaign is None:
+        return _json_error("Campaign not found.", 404)
+    return jsonify({"status": "ok", "campaign": _public_campaign(campaign)})
+
+
+# ---------------------------------------------------------------------------
+# Questionnaires — global read-only configuration
+# ---------------------------------------------------------------------------
+
+@app.route("/api/questionnaire/<track>")
+def get_questionnaire(track):
+    if track not in ALLOWED_TRACKS:
         return _json_error("Invalid report type.", 400)
 
-    file_path = _questionnaire_file(report_type)
+    file_path = _questionnaire_file(track)
     if not os.path.exists(file_path):
         return _json_error("Questionnaire not found.", 404)
 
@@ -79,9 +205,13 @@ def get_questionnaire(report_type):
     return jsonify({"status": "ok", "questionnaire": questionnaire})
 
 
-@app.route("/saveAssessmentData/<report_type>", methods=["POST"])
-def save_assessment_data(report_type):
-    if report_type not in ALLOWED_REPORT_TYPES:
+# ---------------------------------------------------------------------------
+# Submissions and reports
+# ---------------------------------------------------------------------------
+
+@app.route("/saveAssessmentData/<campaign_id>/<track>", methods=["POST"])
+def save_assessment_data(campaign_id, track):
+    if track not in ALLOWED_TRACKS:
         return _json_error("Invalid report type.", 400)
 
     payload = request.get_json(silent=True)
@@ -89,49 +219,78 @@ def save_assessment_data(report_type):
     if not is_valid:
         return _json_error(error_message, 400)
 
-    file_path = _assessment_file(report_type)
-    with open(file_path, "w", encoding="utf-8") as file:
-        json.dump(payload, file, indent=2)
+    try:
+        respondent_id = store.save_submission(campaign_id, track, payload)
+    except InvalidInputError:
+        return _json_error("Assessment could not be saved.", 400)
+    except CampaignNotFoundError:
+        return _json_error("Campaign or track not found.", 404)
 
-    return jsonify({"status": "ok", "message": f"{report_type.title()} assessment saved."})
+    return jsonify(
+        {
+            "status": "ok",
+            "message": f"{track.title()} assessment saved.",
+            "respondent_id": respondent_id,
+        }
+    )
 
 
-@app.route("/generateFeedback/<report_type>", methods=["POST"])
-def generate_feedback(report_type):
-    if report_type not in ALLOWED_REPORT_TYPES:
+@app.route("/generateFeedback/<campaign_id>/<track>/<respondent_id>", methods=["POST"])
+def generate_feedback(campaign_id, track, respondent_id):
+    if track not in ALLOWED_TRACKS:
         return _json_error("Invalid report type.", 400)
 
     try:
-        assessment_data, metadata = load_assessment_payload(_assessment_file(report_type))
-        report_path, summary = generate_report(report_type, assessment_data, metadata, GENERATED_REPORT_DIR)
-        return jsonify(
-            {
-                "status": "ok",
-                "message": f"{os.path.basename(report_path)} is ready.",
-                "summary": summary,
-            }
-        )
-    except FileNotFoundError:
-        return _json_error("No saved assessment data found for this report type.", 404)
+        assessment_data, metadata = store.load_submission(campaign_id, track, respondent_id)
+        output_path = store.report_path(campaign_id, track, respondent_id)
+    except InvalidInputError:
+        return _json_error("Invalid request.", 400)
+    except CampaignNotFoundError:
+        return _json_error("No saved assessment found for this respondent.", 404)
+
+    try:
+        _, summary = generate_report(track, assessment_data, metadata, output_path)
     except ValueError as exc:
         return _json_error(str(exc), 400)
     except RuntimeError as exc:
+        # Surfaces the missing-API-key case, which is actionable and carries no data.
         return _json_error(str(exc), 500)
     except Exception:
         return _json_error("Report generation failed. Check server logs for details.", 500)
 
+    return jsonify({"status": "ok", "message": "Your report is ready.", "summary": summary})
 
-@app.route("/downloadReport/<report_type>", methods=["GET"])
-def download_report(report_type):
-    if report_type not in ALLOWED_REPORT_TYPES:
+
+@app.route("/downloadReport/<campaign_id>/<track>/<respondent_id>", methods=["GET"])
+def download_report(campaign_id, track, respondent_id):
+    if track not in ALLOWED_TRACKS:
         return _json_error("Invalid report type.", 400)
 
-    file_name = f"{report_type}_feedback_report.pdf"
-    file_path = os.path.join(GENERATED_REPORT_DIR, file_name)
+    try:
+        file_path = store.report_path(campaign_id, track, respondent_id)
+    except InvalidInputError:
+        return _json_error("Invalid request.", 400)
+    except CampaignNotFoundError:
+        return _json_error("Requested report is not available yet.", 404)
+
     if not os.path.exists(file_path):
         return _json_error("Requested report is not available yet.", 404)
 
-    return send_from_directory(GENERATED_REPORT_DIR, file_name, as_attachment=True)
+    return send_from_directory(
+        os.path.dirname(file_path),
+        os.path.basename(file_path),
+        as_attachment=True,
+        download_name=f"{track}_cyber_hygiene_report.pdf",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Static front end
+# ---------------------------------------------------------------------------
+
+@app.route("/")
+def serve_index():
+    return send_from_directory(app.static_folder, "index.html")
 
 
 @app.route("/<path:path>")
