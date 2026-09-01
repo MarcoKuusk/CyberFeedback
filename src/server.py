@@ -7,8 +7,15 @@ from typing import Any, Dict, Tuple
 from flask import Flask, jsonify, request, send_from_directory
 
 import campaign_store as store
-from campaign_store import ALLOWED_LOCALES, ALLOWED_TRACKS, CampaignNotFoundError, InvalidInputError
-from main import generate_report
+from campaign_store import (
+    ALLOWED_LOCALES,
+    ALLOWED_ORG_REPORT_MODES,
+    ALLOWED_TRACKS,
+    CampaignNotFoundError,
+    InvalidInputError,
+)
+from main import generate_org_report, generate_report
+from utils.report_analysis import MIN_AGGREGATE_N
 
 app = Flask(__name__, static_folder="webinterface")
 
@@ -285,6 +292,104 @@ def download_report(campaign_id, track, respondent_id):
 
 
 # ---------------------------------------------------------------------------
+# Campaign-level rollups (leadership-facing — admin only)
+# ---------------------------------------------------------------------------
+
+@app.route("/api/campaigns/<campaign_id>/submissions", methods=["GET"])
+@_require_admin
+def list_campaign_submissions(campaign_id):
+    """Participation view for the admin UI.
+
+    No submission contents are read or returned — only opaque respondent ids and
+    whether a PDF exists. `min_aggregate_n` lets the UI explain why an aggregate
+    is unavailable for a small track without exposing per-respondent data.
+    """
+    campaign = store.get_campaign(campaign_id)
+    if campaign is None:
+        return _json_error("Campaign not found.", 404)
+
+    submissions = {}
+    for track in campaign.get("tracks", []):
+        rows = []
+        for respondent_id in store.list_respondents(campaign_id, track):
+            has_report = os.path.exists(store.report_path(campaign_id, track, respondent_id))
+            rows.append({"respondent_id": respondent_id, "has_report": has_report})
+        submissions[track] = rows
+
+    return jsonify(
+        {
+            "status": "ok",
+            "campaign": _public_campaign(campaign),
+            "submissions": submissions,
+            "min_aggregate_n": MIN_AGGREGATE_N,
+        }
+    )
+
+
+@app.route("/generateOrgReport/<campaign_id>/<mode>", methods=["POST"])
+@_require_admin
+def generate_org_report_endpoint(campaign_id, mode):
+    """Render a campaign-level rollup PDF.
+
+    Org rollups expose aggregated org data and are leadership-only, hence the
+    admin gate. The min-N suppression inside aggregate_assessment remains the
+    second line of defense regardless of who is authenticated.
+    """
+    if mode not in ALLOWED_ORG_REPORT_MODES:
+        return _json_error("Invalid report mode.", 400)
+
+    try:
+        output_path = store.org_report_path(campaign_id, mode)
+    except InvalidInputError:
+        return _json_error("Invalid request.", 400)
+    except CampaignNotFoundError:
+        return _json_error("Campaign not found.", 404)
+
+    try:
+        report_file, _summary = generate_org_report(mode, campaign_id, output_path)
+    except LookupError:
+        return _json_error("Campaign not found.", 404)
+    except ValueError as exc:
+        return _json_error(str(exc), 400)
+    except RuntimeError as exc:
+        return _json_error(str(exc), 500)
+    except Exception:
+        return _json_error("Report generation failed. Check server logs for details.", 500)
+
+    return jsonify(
+        {
+            "status": "ok",
+            "message": f"{os.path.basename(report_file)} is ready.",
+            "mode": mode,
+        }
+    )
+
+
+@app.route("/downloadOrgReport/<campaign_id>/<mode>", methods=["GET"])
+@_require_admin
+def download_org_report(campaign_id, mode):
+    if mode not in ALLOWED_ORG_REPORT_MODES:
+        return _json_error("Invalid report mode.", 400)
+
+    try:
+        file_path = store.org_report_path(campaign_id, mode)
+    except InvalidInputError:
+        return _json_error("Invalid request.", 400)
+    except CampaignNotFoundError:
+        return _json_error("Campaign not found.", 404)
+
+    if not os.path.exists(file_path):
+        return _json_error("Requested report is not available yet.", 404)
+
+    return send_from_directory(
+        os.path.dirname(file_path),
+        os.path.basename(file_path),
+        as_attachment=True,
+        download_name=f"{mode}_report.pdf",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Static front end
 # ---------------------------------------------------------------------------
 
@@ -293,8 +398,21 @@ def serve_index():
     return send_from_directory(app.static_folder, "index.html")
 
 
+@app.route("/admin")
+@_require_admin
+def serve_admin():
+    """Campaign admin UI. Gated by the same token/loopback rule as the API it
+    drives — the pilot binds to the org LAN, so this must not be world-readable."""
+    return send_from_directory(app.static_folder, "admin.html")
+
+
 @app.route("/<path:path>")
 def serve_static_files(path):
+    # The admin bundle is served only through the gated /admin route; otherwise
+    # the catch-all would hand out admin.html / admin.js to anyone on the LAN and
+    # quietly undo the gate.
+    if os.path.basename(path).lower().startswith("admin.") and not _admin_ok():
+        return _json_error("Not authorized.", 403)
     return send_from_directory(app.static_folder, path)
 
 

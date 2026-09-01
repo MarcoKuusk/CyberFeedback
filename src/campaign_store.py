@@ -33,6 +33,10 @@ ALLOWED_LOCALES = ("en", "et")
 
 CAMPAIGN_STATUSES = ("open", "closed")
 
+# Campaign-level rollup reports (Phase 2). These are not tracks: they render one
+# PDF per campaign rather than per respondent.
+ALLOWED_ORG_REPORT_MODES = ("aggregate", "organization", "combined")
+
 _ID_PATTERN = re.compile(r"^[0-9a-f]{32}$")
 _SLUG_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$")
 
@@ -303,6 +307,53 @@ def save_submission(campaign_id: str, track: str, payload: Dict[str, Any]) -> st
     return respondent_id
 
 
+def import_legacy_submission(campaign_id: str, track: str, payload: Dict[str, Any]) -> str:
+    """Import one pre-campaign submission that has no consent record.
+
+    `save_submission` refuses a submission without consent, and that gate must
+    not be weakened — so legacy data comes in through this separate, explicitly
+    named door instead. Consent is recorded as **not given**: these respondents
+    were never asked, so the record must not look like they agreed. The research
+    export filters on `consent.agreed`, which keeps this data out of the thesis
+    dataset while preserving it for local operational use.
+    """
+    campaign = _require_campaign(campaign_id)
+    track = _resolve_track(campaign, track)
+
+    if not isinstance(payload, dict):
+        raise InvalidInputError("Payload must be an object.")
+    responses = payload.get("responses")
+    if not isinstance(responses, list) or not responses:
+        raise InvalidInputError("Responses must be a non-empty list.")
+    metadata = payload.get("metadata", {})
+    if not isinstance(metadata, dict):
+        raise InvalidInputError("Metadata must be an object.")
+
+    respondent_id = uuid4().hex
+    record = {
+        "respondent_id": respondent_id,
+        "campaign_id": campaign["campaign_id"],
+        "track": track,
+        "locale": campaign.get("locale", "en"),
+        "submitted_at": _now(),
+        "consent": {
+            "agreed": False,
+            "version": "not-collected",
+            "recorded_at": None,
+            "legacy_import": True,
+        },
+        "metadata": metadata,
+        "responses": responses,
+    }
+
+    directory = _track_dir(campaign, track, DATA_DIR)
+    os.makedirs(directory, exist_ok=True)
+    destination = _safe_join(directory, f"{respondent_id}.json")
+    with open(destination, "w", encoding="utf-8") as handle:
+        json.dump(record, handle, ensure_ascii=False, indent=2)
+    return respondent_id
+
+
 def load_record(campaign_id: str, track: str, respondent_id: str) -> Dict[str, Any]:
     campaign = _require_campaign(campaign_id)
     track = _resolve_track(campaign, track)
@@ -343,3 +394,24 @@ def report_path(campaign_id: str, track: str, respondent_id: str) -> str:
     directory = _track_dir(campaign, track, REPORT_DIR)
     os.makedirs(directory, exist_ok=True)
     return _safe_join(directory, f"{respondent_id}.pdf")
+
+
+def org_report_path(campaign_id: str, mode: str) -> str:
+    """Output path for a campaign-level rollup PDF, guaranteed inside REPORT_DIR.
+
+    Org rollups live under a reserved "_org" segment rather than a real
+    {track}/{respondent_id} location. "_org" is not in ALLOWED_TRACKS, so it can
+    never be produced as a track path and cannot collide with a respondent PDF.
+    """
+    campaign = _require_campaign(campaign_id)
+    if mode not in ALLOWED_ORG_REPORT_MODES:
+        raise InvalidInputError("Invalid report mode.")
+
+    directory = _safe_join(
+        REPORT_DIR,
+        _validate_slug(campaign["org_slug"]),
+        _validate_id(campaign["campaign_id"], "campaign id"),
+        "_org",
+    )
+    os.makedirs(directory, exist_ok=True)
+    return _safe_join(directory, f"{mode}.pdf")

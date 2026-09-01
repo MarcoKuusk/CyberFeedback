@@ -4,7 +4,9 @@
 
 **Definition of shipped:** one real organization completes both tracks — leadership does the org self-assessment, staff do the employee assessment — on a local deployment you operate on-site. Every employee gets their own private PDF. Leadership gets three org-facing reports. You walk away with a clean, anonymized research dataset for the thesis.
 
-This plan supersedes the *sequencing* in [ROADMAP.md](ROADMAP.md). It does not supersede its architecture: Block 1 below implements [PHASE1_PLAN.md](PHASE1_PLAN.md) with three amendments (§ Amendments). Phases 4 and 6 of the roadmap are explicitly out of scope for day 20.
+This plan supersedes the *sequencing* in [ROADMAP.md](ROADMAP.md) and in
+[PHASE2_PLAN.md](PHASE2_PLAN.md) (whose org-report implementation is now merged in;
+it stands as the design rationale for Block 2). It does not supersede its architecture: Block 1 below implements [PHASE1_PLAN.md](PHASE1_PLAN.md) with three amendments (§ Amendments). Phases 4 and 6 of the roadmap are explicitly out of scope for day 20.
 
 ---
 
