@@ -1,60 +1,135 @@
 # Cyber Hygiene Feedback Tool
 
-## Overview
-Cyber Hygiene Feedback Tool helps employees and SMEs assess cyber hygiene through structured questionnaires, guided review, and polished PDF reports. The refreshed experience focuses on clearer summaries, stronger presentation quality, grounded AI recommendations, and safer local configuration.
+A hosted cybersecurity self-assessment for small and medium organizations. Staff
+open a link, answer about ten minutes of multiple-choice questions, and receive
+their own private PDF report. Leadership receives an anonymized team-wide
+picture, their own organizational self-assessment, and a combined report showing
+where the two disagree.
 
-## What changed
-- Professional, PDF-first report layout with score snapshot, priority actions, category breakdown, and appendix highlights.
-- AI prompts now use selected answer text, category scores, repeated patterns, and prioritized actions instead of only raw weak/strong lists.
-- Simpler web flow with a review step before submission, cleaner results view, and clearer report generation status.
-- API key loading now uses the `OPENAI_API_KEY` environment variable instead of repository config.
-- Assessment and generated report files are treated as local artifacts and ignored by git.
+That gap — *"leadership rates security training as mature, but most staff can't
+identify a phishing email"* — is the artifact neither assessment produces alone.
 
-## Project Structure
-```text
-src/
-  main.py                        # Report generation entry point and PDF rendering
-  server.py                      # Flask app, questionnaire API, assessment saving, report download
-  Feedback_Generators/           # AI prompt generation for employee and organization reports
-  Question_And_Data/             # Questionnaire source JSON files
-  Generated_PDF_Report/          # Generated PDFs (local artifact)
-  data/                          # Saved assessment responses (local artifact)
-  utils/report_analysis.py       # Shared scoring and assessment summarization logic
-  webinterface/                  # HTML, CSS, and JS for the assessment experience
+---
+
+## The two assessments
+
+| Track | Who answers | Measures |
+|---|---|---|
+| **Employee** | All staff, anonymously | What people actually do |
+| **Organization** | One leadership respondent | What controls are believed to be in place |
+
+## What each party receives
+
+- **Each employee** — their own private report. Never shown to their employer.
+- **Leadership** — the anonymized employee aggregate, their own self-assessment,
+  and the combined gap report.
+- **The organization** — a measured human-risk baseline: stated controls versus
+  observed behavior.
+
+## Privacy, in one paragraph
+
+No name, email, job title, or free-text field is collected anywhere — every
+question is multiple choice. Individual answers are never visible to the
+employer. No leadership-facing breakdown is produced below five respondents.
+Each client organization's leadership credential is scoped to their own campaign
+and cannot reach another client's data. Full detail, written to be handed to a
+prospective client: [docs/DATA_HANDLING.md](docs/DATA_HANDLING.md).
+
+---
+
+## Quick start
+
+```powershell
+pip install -r requirements.txt
+$env:OPENAI_API_KEY="sk-..."          # or: .\scripts\set-openai-key.ps1
+python src/serve.py
 ```
 
-## Setup
-1. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-2. Set your OpenAI API key in the shell before starting the app.
-   PowerShell example:
-   ```powershell
-   $env:OPENAI_API_KEY="your_api_key_here"
-   ```
-   Or save it to your Windows user environment without committing it:
-   ```powershell
-   .\scripts\set-openai-key.ps1
-   ```
-3. Optional: choose the OpenAI model and reasoning effort. The default model is `gpt-5.5`.
-   ```powershell
-   $env:OPENAI_MODEL="gpt-5.5"
-   $env:OPENAI_REASONING_EFFORT="medium"
-   ```
-4. Start the Flask server:
-   ```bash
-   python src/server.py
-   ```
-5. Open the app at [http://127.0.0.1:5000](http://127.0.0.1:5000).
+Then open <http://127.0.0.1:8080/admin>, create a campaign, and copy the staff
+link it gives you. On loopback no admin token is needed.
 
-## Usage
-- Choose either the employee or organization assessment.
-- Complete the questionnaire and review your answers before saving.
-- View the immediate summary in the browser.
-- Generate and download the full PDF report when ready.
+For a real deployment — HTTPS, Docker, tokens, backups — see
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Do not expose `src/server.py`; it is
+Flask's development server.
 
-## Notes
-- If `OPENAI_API_KEY` is missing, PDF generation will fail with a clear error message.
-- `OPENAI_MODEL` and `OPENAI_REASONING_EFFORT` can be overridden locally for development.
-- Saved assessments and generated reports may contain sensitive operational information and should be handled as local-only data unless you intentionally move them elsewhere.
+## Running an engagement
+
+[docs/RUNBOOK.md](docs/RUNBOOK.md) covers it end to end: scoping with the client,
+routing the three credentials, watching participation, generating and delivering
+the reports, and deleting the data afterwards.
+
+---
+
+## How it fits together
+
+```
+Operator ──> /admin ──────────> creates a campaign
+                                 │
+                                 ├─ staff link       ──> /c/<token>  (employee questionnaire)
+                                 ├─ leadership link  ──> /c/<token>  (organization questionnaire)
+                                 └─ leadership code  ──> /admin      (that campaign's rollups only)
+
+Respondent ─> /c/<token> ─> consent ─> questions ─> submit
+                                                     │
+                                                     ├─> stored: data/<org>/<campaign>/<track>/<id>.json
+                                                     └─> their own PDF, via their link alone
+
+Leadership ─> aggregate | organization | combined ──> PDF rollups (min. 5 respondents)
+```
+
+The link token decides which questionnaire opens, so a staff link cannot reach
+the leadership assessment. The respondent id that retrieves a private report is
+issued only to the browser that submitted it, and is never given to leadership.
+
+## Project structure
+
+```text
+src/
+  serve.py                   # Production entry point (waitress) — use this
+  server.py                  # Flask app and all endpoints
+  campaign_store.py          # Campaign registry, tokens, path-safe storage
+  main.py                    # PDF generation and AI section parsing
+  Feedback_Generators/       # One prompt builder per report type
+  Question_And_Data/         # Questionnaire JSON (read-only configuration)
+  utils/report_analysis.py   # Scoring, aggregation, gap comparison
+  webinterface/              # Respondent UI and admin console
+  data/                      # LOCAL ONLY — submissions (gitignored)
+  Generated_PDF_Report/      # LOCAL ONLY — generated PDFs (gitignored)
+
+scripts/
+  export_research_data.py    # Anonymized CSV dataset for research
+  delete_org_data.py         # Erase one organization, irreversibly
+  regenerate_reports.py      # Rebuild PDFs after a failed batch
+  migrate_to_campaigns.py    # One-time migration from the single-file model
+
+docs/
+  DATA_HANDLING.md           # Client-facing privacy document
+  DEPLOYMENT.md              # Hosting, HTTPS, backups, deletion
+  RUNBOOK.md                 # Running an engagement
+  CONSENT.md                 # Consent text and participant invitations
+  ROADMAP.md                 # Where this is going
+```
+
+## Tests
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest
+```
+
+Covers the scoring arithmetic, PDF rendering, path-traversal defenses, link
+token isolation, role separation and cross-tenant boundaries, and the operator
+scripts. The OpenAI client is mocked at its boundary — no test reaches the live
+API.
+
+## Configuration
+
+| Variable | Purpose |
+|---|---|
+| `OPENAI_API_KEY` | Required. Report generation. |
+| `CYBERFEEDBACK_ADMIN_TOKEN` | Operator credential. Required off loopback. |
+| `CYBERFEEDBACK_PUBLIC_URL` | Public base URL used to build campaign links. |
+| `OPENAI_MODEL` | Default `gpt-5.5`. |
+
+Full table in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). The API key is read only
+from the environment and is never stored in the repository.

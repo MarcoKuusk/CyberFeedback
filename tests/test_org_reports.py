@@ -51,22 +51,30 @@ def _create_campaign(client, tracks=("employee", "organization")):
     return resp.get_json()["campaign"]["campaign_id"]
 
 
+def _link(client, campaign_id, track):
+    """Respondents submit through a per-track link token, so seeding a campaign
+    goes through the same door a real participant would use."""
+    links = client.get(f"/api/campaigns/{campaign_id}/links").get_json()["links"]
+    return links[track]["token"]
+
+
 def _seed_employees(client, campaign_id, n):
+    token = _link(client, campaign_id, "employee")
     for responses in _employee_submissions(n):
         resp = client.post(
-            f"/saveAssessmentData/{campaign_id}/employee",
+            f"/api/link/{token}/submit",
             json={
-                    "responses": responses,
-                    "metadata": {"report_type": "employee"},
-                    "consent": CONSENT,
-                },
+                "responses": responses,
+                "metadata": {"report_type": "employee"},
+                "consent": CONSENT,
+            },
         )
         assert resp.status_code == 200
 
 
 def _seed_org(client, campaign_id):
     resp = client.post(
-        f"/saveAssessmentData/{campaign_id}/organization",
+        f"/api/link/{_link(client, campaign_id, 'organization')}/submit",
         json={
             "responses": _org_submission(CONTROL_SCORES),
             "metadata": {"report_type": "organization"},
@@ -214,15 +222,30 @@ class TestOrgRoutesAreAdminGated:
         client, cid = gated
         assert client.get(f"/downloadOrgReport/{cid}/aggregate").status_code == 403
 
-    def test_admin_page_is_gated(self, gated):
+    def test_admin_shell_is_reachable_without_a_credential(self, gated):
+        """Previously gated, which made the console unreachable: a browser
+        navigation cannot carry X-Admin-Token, so the operator could never get
+        to the prompt that asks for one. The shell is public; the data is not.
+        """
         client, _ = gated
-        assert client.get("/admin").status_code == 403
+        assert client.get("/admin").status_code == 200
+        assert client.get("/admin.js").status_code == 200
 
-    def test_admin_assets_not_reachable_via_static_catch_all(self, gated):
-        """The gate is worthless if the catch-all still hands out the bundle."""
-        client, _ = gated
-        assert client.get("/admin.html").status_code == 403
-        assert client.get("/admin.js").status_code == 403
+    def test_serving_the_shell_exposes_no_campaign_data(self, gated):
+        """The reason serving it is safe: everything it renders is fetched from
+        an endpoint that checks a role."""
+        client, cid = gated
+        # No campaign id, and therefore no handle onto any campaign. ("Acme"
+        # appears in the page as a static form placeholder, not as data.)
+        assert cid not in client.get("/admin").get_data(as_text=True)
+
+        for path in (
+            "/api/campaigns",
+            f"/api/campaigns/{cid}",
+            f"/api/campaigns/{cid}/links",
+            f"/api/campaigns/{cid}/submissions",
+        ):
+            assert client.get(path).status_code == 403, path
 
     def test_correct_token_is_admitted(self, gated):
         client, cid = gated

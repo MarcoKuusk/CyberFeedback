@@ -1,0 +1,24 @@
+# Never let client data or secrets reach an image layer.
+src/data/
+src/Generated_PDF_Report/
+src/config.json
+.env
+.env.*
+
+.git/
+.gitignore
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.vscode/
+.claude/
+
+tests/
+docs/
+AI_Diaries/
+Example_Reports/
+PromptExample/
+WebInterfaceScreenshots/
+Self-Assessment_Questionnaires/
+*.md

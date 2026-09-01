@@ -7,6 +7,9 @@ const CONSENT_VERSION = '1.0-draft';
 const state = {
     currentPage: 'home',
     campaign: null,
+    // The link token a respondent arrived with, and the single track it grants.
+    linkToken: null,
+    grantedTrack: null,
     reportType: null,
     respondentId: null,
     consentAgreed: false,
@@ -86,14 +89,6 @@ function cacheElements() {
     elements.campaignEyebrow = document.getElementById('campaignEyebrow');
     elements.campaignHeading = document.getElementById('campaignHeading');
     elements.campaignDetail = document.getElementById('campaignDetail');
-    elements.campaignCreate = document.getElementById('campaignCreate');
-    elements.newOrgName = document.getElementById('newOrgName');
-    elements.trackEmployee = document.getElementById('trackEmployee');
-    elements.trackOrganization = document.getElementById('trackOrganization');
-    elements.newLocale = document.getElementById('newLocale');
-    elements.createCampaignButton = document.getElementById('createCampaignButton');
-    elements.campaignCreateStatus = document.getElementById('campaignCreateStatus');
-    elements.campaignLinks = document.getElementById('campaignLinks');
 
     // Consent
     elements.consentCheckbox = document.getElementById('consentCheckbox');
@@ -129,7 +124,6 @@ function bindEvents() {
     elements.submitAssessmentButton.addEventListener('click', submitAssessment);
     elements.downloadButton.addEventListener('click', generateAndDownloadReport);
 
-    elements.createCampaignButton.addEventListener('click', createCampaign);
     elements.consentContinueButton.addEventListener('click', acceptConsent);
     elements.consentBackButton.addEventListener('click', () => {
         toggleSection('intro');
@@ -153,46 +147,56 @@ function showPage(pageId) {
 // Campaign context
 // ---------------------------------------------------------------------------
 
-function campaignIdFromUrl() {
-    const value = new URLSearchParams(window.location.search).get('campaign');
+function linkTokenFromUrl() {
+    // Canonical form is /c/<token>; the query form is kept so an older link
+    // still resolves rather than dead-ending on a blank page.
+    const fromPath = window.location.pathname.match(/^\/c\/([0-9a-f]{32})\/?$/);
+    if (fromPath) {
+        return fromPath[1];
+    }
+    const value = new URLSearchParams(window.location.search).get('token');
     return value && /^[0-9a-f]{32}$/.test(value) ? value : null;
 }
 
 async function resolveCampaign() {
-    const campaignId = campaignIdFromUrl();
+    const token = linkTokenFromUrl();
 
-    if (!campaignId) {
-        elements.campaignEyebrow.textContent = 'No campaign link';
+    if (!token) {
+        elements.campaignEyebrow.textContent = 'No assessment link';
         elements.campaignHeading.textContent = 'An assessment link is required';
         elements.campaignDetail.textContent =
-            'Open the link provided by the person running this assessment. If you are running it, create a campaign below.';
-        elements.campaignCreate.classList.remove('hidden');
+            'Open the link your organization sent you. It looks like .../c/ followed by a long code.';
         setTrackAvailability([]);
         return;
     }
 
     try {
-        const response = await fetch(`/api/campaigns/${campaignId}`);
+        const response = await fetch(`/api/link/${token}`);
         const payload = await response.json();
         if (!response.ok) {
-            throw new Error(payload.message || 'Campaign could not be loaded.');
+            throw new Error(payload.message || 'This assessment link could not be opened.');
         }
 
+        // The server derives the track from the token. The respondent never
+        // picks it, so a staff link cannot open the leadership questionnaire.
+        state.linkToken = token;
         state.campaign = payload.campaign;
+        state.grantedTrack = payload.track;
 
         if (state.campaign.status !== 'open') {
-            elements.campaignEyebrow.textContent = 'Campaign closed';
+            elements.campaignEyebrow.textContent = 'Assessment closed';
             elements.campaignHeading.textContent = 'This assessment is no longer accepting responses';
-            elements.campaignDetail.textContent = 'Contact the person who sent you this link.';
+            elements.campaignDetail.textContent = 'Contact whoever sent you this link.';
             setTrackAvailability([]);
             return;
         }
 
         elements.campaignEyebrow.textContent = 'Assessment for';
         elements.campaignHeading.textContent = state.campaign.org_name;
-        elements.campaignDetail.textContent =
-            'Your individual answers are private and are never shown to your employer. You will be asked to consent before starting.';
-        setTrackAvailability(state.campaign.tracks);
+        elements.campaignDetail.textContent = state.grantedTrack === 'employee'
+            ? 'Your individual answers are private and are never shown to your employer. Only anonymous, team-wide totals are shared. You will be asked to consent before starting.'
+            : 'This is the leadership self-assessment of your organization\u2019s controls. You will be asked to consent before starting.';
+        setTrackAvailability([state.grantedTrack]);
     } catch (error) {
         elements.campaignEyebrow.textContent = 'Link problem';
         elements.campaignHeading.textContent = 'This assessment link is not valid';
@@ -202,44 +206,15 @@ async function resolveCampaign() {
 }
 
 function setTrackAvailability(tracks) {
+    // A respondent is granted exactly one track, so the other is hidden rather
+    // than disabled: there is nothing they could do with it, and showing it
+    // only raises questions about an assessment that is not theirs.
     const enabled = new Set(tracks);
     elements.startButtons.forEach((button) => {
         const available = enabled.has(button.dataset.start);
         button.disabled = !available;
-        button.title = available ? '' : 'Not enabled for this campaign';
+        button.classList.toggle('hidden', !available);
     });
-}
-
-async function createCampaign() {
-    const tracks = [];
-    if (elements.trackEmployee.checked) tracks.push('employee');
-    if (elements.trackOrganization.checked) tracks.push('organization');
-
-    elements.campaignCreateStatus.textContent = 'Creating campaign...';
-    elements.campaignLinks.classList.add('hidden');
-
-    try {
-        const response = await fetch('/api/campaigns', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                org_name: elements.newOrgName.value,
-                tracks,
-                locale: elements.newLocale.value,
-            }),
-        });
-        const payload = await response.json();
-        if (!response.ok) {
-            throw new Error(payload.message || 'Campaign could not be created.');
-        }
-
-        const link = `${window.location.origin}/?campaign=${payload.campaign.campaign_id}`;
-        elements.campaignCreateStatus.textContent = 'Campaign created. Share this link with participants:';
-        elements.campaignLinks.innerHTML = `<code>${escapeHtml(link)}</code>`;
-        elements.campaignLinks.classList.remove('hidden');
-    } catch (error) {
-        elements.campaignCreateStatus.textContent = error.message;
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -468,7 +443,7 @@ async function submitAssessment() {
     setStatus('Saving your assessment...', '');
 
     try {
-        const response = await fetch(`/saveAssessmentData/${state.campaign.campaign_id}/${state.reportType}`, {
+        const response = await fetch(`/api/link/${state.linkToken}/submit`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
@@ -608,24 +583,24 @@ function renderDetailList(element, items, emptyMessage) {
 }
 
 async function generateAndDownloadReport() {
-    if (!state.campaign || !state.reportType || !state.respondentId) {
+    if (!state.linkToken || !state.respondentId) {
         setStatus('Save your assessment before generating a report.', 'error');
         return;
     }
 
-    const base = `${state.campaign.campaign_id}/${state.reportType}/${state.respondentId}`;
+    const base = `${state.linkToken}/report/${state.respondentId}`;
     elements.downloadButton.disabled = true;
     setStatus('Generating your PDF report. This can take a moment.', '');
 
     try {
-        const response = await fetch(`/generateFeedback/${base}`, { method: 'POST' });
+        const response = await fetch(`/api/link/${base}`, { method: 'POST' });
         const payload = await response.json();
         if (!response.ok) {
             throw new Error(payload.message || 'Failed to generate the report.');
         }
 
         const link = document.createElement('a');
-        link.href = `/downloadReport/${base}`;
+        link.href = `/api/link/${base}`;
         link.download = `${state.reportType}_cyber_hygiene_report.pdf`;
         document.body.appendChild(link);
         link.click();

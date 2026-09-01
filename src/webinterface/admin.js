@@ -144,28 +144,14 @@ function buildCampaignRow(campaign) {
 
     const meta = el('div', 'campaign-meta');
     meta.appendChild(el('span', 'mono', `id: ${campaign.campaign_id}`));
-    meta.appendChild(el('span', null, `slug: ${campaign.org_slug}`));
     meta.appendChild(el('span', null, `created: ${formatDate(campaign.created_at)}`));
     meta.appendChild(el('span', 'badge status', campaign.status || 'open'));
     (campaign.tracks || []).forEach((track) => meta.appendChild(el('span', 'badge', track)));
     row.appendChild(meta);
 
-    const link = `${window.location.origin}/?campaign=${campaign.campaign_id}`;
-    const linkRow = el('div', 'link-row');
-    linkRow.appendChild(el('span', 'link-label', 'Respondent link'));
-    linkRow.appendChild(el('span', 'mono', link));
-
-    const copyButton = el('button', 'button button-secondary small', 'Copy link');
-    copyButton.type = 'button';
-    copyButton.addEventListener('click', () => copyLink(link, copyButton));
-    linkRow.appendChild(copyButton);
-
-    const open = el('a', 'button button-secondary small', 'Open');
-    open.href = link;
-    open.target = '_blank';
-    open.rel = 'noopener';
-    linkRow.appendChild(open);
-    row.appendChild(linkRow);
+    const linksWrap = el('div', 'links-wrap');
+    row.appendChild(linksWrap);
+    loadLinks(campaign, linksWrap);
 
     // Submissions panel (lazy-loaded; this is where saved assessments show up).
     const subsWrap = el('div', 'submissions-wrap hidden');
@@ -186,6 +172,94 @@ function buildCampaignRow(campaign) {
     return row;
 }
 
+// The two links are different credentials with different audiences: one goes to
+// every employee, the other only to leadership. They are labelled explicitly so
+// they cannot be mixed up in an email — swapping them would put the leadership
+// questionnaire in front of the whole company.
+const TRACK_LINK_LABELS = {
+    employee: {
+        title: 'Staff link — send to every employee',
+        note: 'Each person answers once and receives their own private report.',
+    },
+    organization: {
+        title: 'Leadership link — send only to the leadership respondent',
+        note: 'The top-down self-assessment of the organization\u2019s controls.',
+    },
+};
+
+async function loadLinks(campaign, container) {
+    container.replaceChildren(makeNote('Loading links...'));
+    try {
+        const response = await adminFetch(`/api/campaigns/${campaign.campaign_id}/links`);
+        if (response.status === 403) {
+            // Viewer role: rollups yes, distributable credentials no.
+            container.replaceChildren();
+            return;
+        }
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.message || 'Failed to load links.');
+        }
+        renderLinks(container, result.links || {}, result.viewer || null);
+    } catch (error) {
+        container.replaceChildren(makeNote(error.message));
+    }
+}
+
+function renderLinks(container, links, viewer) {
+    const rows = Object.keys(links).map((track) => {
+        const url = links[track].url;
+        const labels = TRACK_LINK_LABELS[track] || { title: `${track} link`, note: '' };
+
+        const linkRow = el('div', 'link-row');
+        linkRow.appendChild(el('span', 'link-label', labels.title));
+        linkRow.appendChild(el('span', 'mono', url));
+
+        const copyButton = el('button', 'button button-secondary small', 'Copy');
+        copyButton.type = 'button';
+        copyButton.addEventListener('click', () => copyLink(url, copyButton));
+        linkRow.appendChild(copyButton);
+
+        const open = el('a', 'button button-secondary small', 'Open');
+        open.href = url;
+        open.target = '_blank';
+        open.rel = 'noopener';
+        linkRow.appendChild(open);
+
+        if (labels.note) {
+            linkRow.appendChild(el('span', 'link-note', labels.note));
+        }
+        return linkRow;
+    });
+
+    if (viewer) {
+        rows.push(buildViewerRow(viewer));
+    }
+    container.replaceChildren(...rows);
+}
+
+// Leadership's read credential for this campaign only. It is not a link they
+// can click through to results: they open the admin page and enter it, and it
+// unlocks nothing beyond this one campaign's rollups.
+function buildViewerRow(viewer) {
+    const row = el('div', 'link-row');
+    row.appendChild(el('span', 'link-label', 'Leadership access code — send only to your client contact'));
+    row.appendChild(el('span', 'mono', viewer.token));
+
+    const copyButton = el('button', 'button button-secondary small', 'Copy code');
+    copyButton.type = 'button';
+    copyButton.addEventListener('click', () => copyLink(viewer.token, copyButton));
+    row.appendChild(copyButton);
+
+    row.appendChild(el(
+        'span',
+        'link-note',
+        `They enter this at ${viewer.url} to see participation counts and download their organization's `
+        + 'reports. It does not reveal any individual response.',
+    ));
+    return row;
+}
+
 async function refreshSubmissions(campaignId, container) {
     container.replaceChildren(makeNote('Loading submissions...'));
     try {
@@ -201,35 +275,45 @@ async function refreshSubmissions(campaignId, container) {
 }
 
 function renderSubmissions(container, campaignId, result) {
-    const submissions = result.submissions || {};
+    // Counts are the shared truth for both roles. Respondent ids arrive only
+    // for the operator, so the participation view degrades to numbers for a
+    // viewer rather than being withheld entirely.
+    const participation = result.participation || {};
+    const submissions = result.submissions || null;
     const minAggregateN = result.min_aggregate_n;
-    const tracks = Object.keys(submissions);
+    const tracks = (result.campaign && result.campaign.tracks) || Object.keys(participation);
+
     if (tracks.length === 0) {
         container.replaceChildren(makeNote('No tracks enabled for this campaign.'));
         return;
     }
+
     const blocks = tracks.map((track) => {
-        const rows = submissions[track] || [];
+        const count = participation[track] || 0;
         const block = el('div', 'track-block');
-        block.appendChild(el('p', 'track-title', `${track} — ${rows.length} submission${rows.length === 1 ? '' : 's'}`));
-        if (rows.length === 0) {
+        block.appendChild(el('p', 'track-title', `${track} — ${count} submission${count === 1 ? '' : 's'}`));
+
+        if (count === 0) {
             block.appendChild(makeNote('No submissions yet.'));
+        } else if (submissions) {
+            (submissions[track] || []).forEach((entry) => block.appendChild(buildSubmissionRow(entry)));
         } else {
-            rows.forEach((entry) => block.appendChild(buildSubmissionRow(campaignId, track, entry, container)));
+            block.appendChild(makeNote('Individual submissions are not shown in this role.'));
         }
         return block;
     });
-    blocks.push(buildOrgReportsBlock(campaignId, submissions, minAggregateN, container));
+
+    blocks.push(buildOrgReportsBlock(campaignId, tracks, participation, minAggregateN, container));
     container.replaceChildren(...blocks);
 }
 
 // Campaign-level org reports (Phase 2): aggregate, organization, combined.
 // A mode's button is disabled (with a tooltip) when its required track is not
 // enabled, so it's obvious why a report is unavailable.
-function buildOrgReportsBlock(campaignId, submissions, minAggregateN, container) {
-    const hasEmployee = Object.prototype.hasOwnProperty.call(submissions, 'employee');
-    const hasOrg = Object.prototype.hasOwnProperty.call(submissions, 'organization');
-    const employeeCount = (submissions.employee || []).length;
+function buildOrgReportsBlock(campaignId, tracks, participation, minAggregateN, container) {
+    const hasEmployee = tracks.includes('employee');
+    const hasOrg = tracks.includes('organization');
+    const employeeCount = participation.employee || 0;
 
     const block = el('div', 'track-block');
     block.appendChild(el('p', 'track-title', 'Organization reports'));
@@ -261,10 +345,11 @@ function buildOrgReportsBlock(campaignId, submissions, minAggregateN, container)
         }
         rowEl.appendChild(genButton);
 
-        const download = el('a', 'button button-secondary small', 'Download');
-        download.href = `/downloadOrgReport/${campaignId}/${mode}`;
-        download.target = '_blank';
-        download.rel = 'noopener';
+        // A plain <a href> cannot carry X-Admin-Token, so on any deployment with
+        // a token configured it would 403. Fetch it and hand over a blob instead.
+        const download = el('button', 'button button-secondary small', 'Download');
+        download.type = 'button';
+        download.addEventListener('click', () => downloadOrgReport(campaignId, mode, download, container));
         rowEl.appendChild(download);
 
         block.appendChild(rowEl);
@@ -291,42 +376,48 @@ async function generateOrgReport(campaignId, mode, button, container) {
     }
 }
 
-function buildSubmissionRow(campaignId, track, entry, container) {
+// Deliberately read-only. An individual report belongs to the respondent who
+// answered, and submissions carry no name, so there is no case in which the
+// operator opening one is both useful and legitimate. Recovery after a failed
+// batch is an ops task: scripts/regenerate_reports.py.
+function buildSubmissionRow(entry) {
     const rowEl = el('div', 'submission-row');
     rowEl.appendChild(el('span', 'mono', entry.respondent_id));
     rowEl.appendChild(el('span', entry.has_report ? 'badge status' : 'badge',
         entry.has_report ? 'report ready' : 'no report'));
-
-    const genButton = el('button', 'button button-secondary small', entry.has_report ? 'Regenerate' : 'Generate report');
-    genButton.type = 'button';
-    genButton.addEventListener('click', () => generateReport(campaignId, track, entry.respondent_id, genButton, container));
-    rowEl.appendChild(genButton);
-
-    if (entry.has_report) {
-        const download = el('a', 'button button-secondary small', 'Download');
-        download.href = `/downloadReport/${campaignId}/${track}/${entry.respondent_id}`;
-        download.target = '_blank';
-        download.rel = 'noopener';
-        rowEl.appendChild(download);
-    }
     return rowEl;
 }
 
-async function generateReport(campaignId, track, respondentId, button, container) {
+async function downloadOrgReport(campaignId, mode, button, container) {
     const original = button.textContent;
     button.disabled = true;
-    button.textContent = 'Generating...';
+    button.textContent = 'Downloading...';
     try {
-        const response = await adminFetch(`/generateFeedback/${campaignId}/${track}/${respondentId}`, { method: 'POST' });
-        const result = await response.json();
+        const response = await adminFetch(`/downloadOrgReport/${campaignId}/${mode}`);
         if (!response.ok) {
-            throw new Error(result.message || 'Failed to generate report.');
+            let message = 'That report has not been generated yet.';
+            try {
+                message = (await response.json()).message || message;
+            } catch (parseError) {
+                // Non-JSON error body; the default message is the useful one.
+            }
+            throw new Error(message);
         }
-        await refreshSubmissions(campaignId, container); // reflect the new report + download link
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `${mode}_report.pdf`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        URL.revokeObjectURL(url);
     } catch (error) {
+        container.appendChild(el('p', 'inline-error', error.message));
+    } finally {
         button.disabled = false;
         button.textContent = original;
-        container.appendChild(el('p', 'inline-error', error.message));
     }
 }
 

@@ -17,9 +17,11 @@ against a strict pattern; `org_slug` is resolved from the trusted registry by
 
 from __future__ import annotations
 
+import hmac
 import json
 import os
 import re
+import secrets
 import tempfile
 import unicodedata
 from datetime import datetime, timezone
@@ -169,6 +171,107 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+# ---------------------------------------------------------------------------
+# Campaign links
+# ---------------------------------------------------------------------------
+
+def _new_token() -> str:
+    """128 bits of entropy, hex-encoded so it matches `_ID_PATTERN` and reuses
+    the same strict validation as every other identifier in this module."""
+    return secrets.token_hex(16)
+
+
+def _campaign_tokens(campaign: Dict[str, Any]) -> Dict[str, str]:
+    tokens = campaign.get("tokens")
+    return tokens if isinstance(tokens, dict) else {}
+
+
+def ensure_tokens(campaign_id: str) -> Dict[str, str]:
+    """Backfill per-track tokens for campaigns created before links existed.
+
+    Idempotent: a token is minted only for an enabled track that lacks a valid
+    one, so calling this never invalidates a link already handed to an
+    organization.
+    """
+    registry = _read_registry()
+    campaign = registry["campaigns"].get(_validate_id(campaign_id, "campaign id"))
+    if not campaign:
+        raise CampaignNotFoundError("Unknown campaign.")
+
+    tokens = dict(_campaign_tokens(campaign))
+    changed = False
+    for track in campaign.get("tracks", ()):
+        existing = tokens.get(track)
+        if not isinstance(existing, str) or not _ID_PATTERN.match(existing):
+            tokens[track] = _new_token()
+            changed = True
+
+    if changed:
+        campaign["tokens"] = tokens
+        _write_registry(registry)
+    return tokens
+
+
+def ensure_viewer_token(campaign_id: str) -> str:
+    """Backfill the per-campaign leadership credential. Idempotent."""
+    registry = _read_registry()
+    campaign = registry["campaigns"].get(_validate_id(campaign_id, "campaign id"))
+    if not campaign:
+        raise CampaignNotFoundError("Unknown campaign.")
+
+    existing = campaign.get("viewer_token")
+    if isinstance(existing, str) and _ID_PATTERN.match(existing):
+        return existing
+
+    token = _new_token()
+    campaign["viewer_token"] = token
+    _write_registry(registry)
+    return token
+
+
+def resolve_viewer_token(token: Any) -> Dict[str, Any] | None:
+    """Map a leadership credential to the single campaign it grants.
+
+    Returns None rather than raising, because the caller treats "not a viewer"
+    and "not authorized" identically. Scanned without short-circuiting for the
+    same reason as `resolve_token`.
+    """
+    if not isinstance(token, str) or not _ID_PATTERN.match(token):
+        return None
+
+    match: Dict[str, Any] | None = None
+    for campaign in _read_registry()["campaigns"].values():
+        candidate = campaign.get("viewer_token")
+        if isinstance(candidate, str) and hmac.compare_digest(candidate, token):
+            match = dict(campaign)
+    return match
+
+
+def resolve_token(token: Any) -> Tuple[Dict[str, Any], str]:
+    """Map a link token to the (campaign, track) it unlocks.
+
+    The token is the only credential a respondent holds, so it decides the track
+    as well as the campaign: an employee link cannot open the leadership
+    questionnaire. Every candidate is compared with `compare_digest` and the
+    loop does not short-circuit, so neither the comparison nor the number of
+    iterations leaks which prefix was closer to a real token.
+    """
+    if not isinstance(token, str) or not _ID_PATTERN.match(token):
+        raise InvalidInputError("Invalid assessment link.")
+
+    match: Tuple[Dict[str, Any], str] | None = None
+    for campaign in _read_registry()["campaigns"].values():
+        for track, candidate in _campaign_tokens(campaign).items():
+            if isinstance(candidate, str) and hmac.compare_digest(candidate, token):
+                match = (dict(campaign), track)
+
+    if match is None:
+        raise CampaignNotFoundError("Unknown assessment link.")
+    if match[1] not in match[0].get("tracks", ()):
+        raise CampaignNotFoundError("Track is not enabled for this campaign.")
+    return match
+
+
 def create_campaign(org_name: str, tracks: List[str], locale: str = "en") -> Dict[str, Any]:
     if not isinstance(org_name, str) or not org_name.strip():
         raise InvalidInputError("Organization name must be a non-empty string.")
@@ -189,6 +292,12 @@ def create_campaign(org_name: str, tracks: List[str], locale: str = "en") -> Dic
         "locale": _validate_locale(locale),
         "status": "open",
         "created_at": _now(),
+        # One unguessable link per enabled track. Separate tokens are what stop
+        # a staff link from opening the leadership questionnaire.
+        "tokens": {track: _new_token() for track in seen},
+        # Leadership's read credential, scoped to this campaign alone, so one
+        # client's leadership can never reach another client's rollups.
+        "viewer_token": _new_token(),
     }
 
     registry = _read_registry()
